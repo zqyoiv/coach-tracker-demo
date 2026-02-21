@@ -1,0 +1,14 @@
+# custom_tracker.yaml - 必须包含 tracker_type 及 botsort 所需字段
+tracker_type: botsort
+track_high_thresh: 0.5
+track_low_thresh: 0.1
+new_track_thresh: 0.6
+# track_buffer: ID 消失后保留多少帧 (30fps 时 300 帧 = 10 秒)
+track_buffer: 300
+match_thresh: 0.8
+fuse_score: true
+gmc_method: sparseOptFlow
+proximity_thresh: 0.5
+appearance_thresh: 0.8
+with_reid: false
+model: auto
