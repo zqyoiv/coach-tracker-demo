@@ -12,6 +12,11 @@ TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
 
 # 2. 打开摄像头 (0 通常是内置摄像头，如果有多个可以试 1, 2)
 cap = cv2.VideoCapture(0)
+# Create a named window that can be resized
+cv2.namedWindow("Store Monitor", cv2.WINDOW_NORMAL) 
+
+# Set the window size (Width, Height) - adjust these numbers to fit your screen
+cv2.resizeWindow("Store Monitor", 800, 450)
 
 # 用于记录每个人首次出现的时间 {TrackID: StartTime}
 start_times = {}
@@ -20,6 +25,9 @@ while cap.isOpened():
     success, frame = cap.read()
     if not success:
         break
+
+    # 水平镜像画面（像镜子一样）
+    frame = cv2.flip(frame, 1)
 
     # 3. 实时追踪 (persist=True 保证跨帧锁定同一个人，classes=[0] 只识别 'person')
     results = model.track(
@@ -51,8 +59,13 @@ while cap.isOpened():
     # 显示结果窗口
     cv2.imshow("Store Monitor", frame)
 
-    # 按 'q' 键退出
+    # 按 'q' 键退出，或点击窗口 X 关闭
     if cv2.waitKey(1) & 0xFF == ord("q"):
+        break
+    try:
+        if cv2.getWindowProperty("Store Monitor", cv2.WND_PROP_VISIBLE) < 1:
+            break
+    except cv2.error:
         break
 
 cap.release()
