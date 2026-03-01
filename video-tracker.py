@@ -3,13 +3,14 @@ Run person tracking on a video file and print a report of time on screen per per
 Usage: python video-tracker.py <video_path>
 """
 import sys
+import time
 from pathlib import Path
 
 import cv2
 from ultralytics import YOLO
 
 # Video to process (or pass as first command-line argument)
-VIDEO_PATH = "video.mp4"  # default; override with: python video-tracker.py path/to/video.mp4
+VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/night-warm.mp4"
 
 # Load model and tracker config
 model = YOLO("yolo11x.pt")
@@ -35,6 +36,7 @@ def main():
 
     print(f"Processing: {video_path} ({total_frames} frames @ {fps:.1f} fps)")
     frame_idx = 0
+    t_start = time.perf_counter()
 
     while True:
         success, frame = cap.read()
@@ -58,12 +60,18 @@ def main():
                 time_on_screen[track_id] = time_on_screen.get(track_id, 0.0) + frame_duration
 
     cap.release()
+    t_end = time.perf_counter()
+    processing_secs = t_end - t_start
+    video_length_secs = total_frames / fps
 
-    # Report: one line per person
-    print("\n--- Report: time on screen ---")
+    # Report: video info, processing time, then one line per person
+    print("\n--- Report ---")
+    print(f"Video length: {video_length_secs:.1f} s ({total_frames} frames)")
+    print(f"Time spent processing: {processing_secs:.1f} s")
+    print("Time on screen per person:")
     for track_id in sorted(time_on_screen.keys(), key=lambda x: int(x)):
         secs = time_on_screen[track_id]
-        print(f"Person {track_id} on screen for {secs:.1f} s")
+        print(f"  Person {track_id} on screen for {secs:.1f} s")
     print("--- end report ---")
 
 if __name__ == "__main__":
