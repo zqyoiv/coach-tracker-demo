@@ -14,7 +14,7 @@ from ultralytics import YOLO
 
 # Video to process (or pass as first command-line argument)
 # VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/night-warm.mp4"
-VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/angle-videos/eyelevel.mp4"
+VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/angle-videos/test1.mp4"
 
 
 # Speed: smaller = faster (480 or 640); use yolo11n.pt for much faster, less accurate
@@ -24,7 +24,7 @@ model = YOLO("yolo11x.pt")
 TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
 
 # Force CPU (set True to ignore GPU)
-USE_CPU = True
+USE_CPU = False
 
 def _get_device():
     if USE_CPU:

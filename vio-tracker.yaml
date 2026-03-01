@@ -1,16 +1,13 @@
-# custom_tracker.yaml - must include tracker_type and fields required by botsort/bytetrack
-# tracker_type: botsort
-tracker_type: bytetrack
+# Tuned so one person keeps one ID: long buffer, reluctant to create new tracks, loose ReID matching.
+tracker_type: botsort
 track_high_thresh: 0.5
 track_low_thresh: 0.1
-new_track_thresh: 0.6
-# track_buffer: frames to keep lost track alive (ultralytics uses 30fps internally, 300 frames ~ 10s)
-# If same person gets a new ID when returning and timer resets, try with_reid: true (more accurate, heavier)
-track_buffer: 300
-match_thresh: 0.8
+new_track_thresh: 0.95
+track_buffer: 20000
+match_thresh: 0.4
 fuse_score: true
 gmc_method: sparseOptFlow
-proximity_thresh: 0.5
-appearance_thresh: 0.8
-with_reid: false
+proximity_thresh: 0.3
+appearance_thresh: 0.3
+with_reid: true
 model: auto
