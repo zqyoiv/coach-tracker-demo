@@ -1,11 +1,12 @@
+Install: `pip install -r requirements.txt`
+
+Run: `python realtime-tracker.py` or `python video-tracker.py <video.mp4>`
+
 **Venv (optional):**
 ```bash
 py -3.12 -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
-
-Install: `pip install -r requirements.txt`
-Run: `python realtime-tracker.py` or `python video-tracker.py <video.mp4>`
 
 **GPU (RTX 50 / Blackwell):**
 ```bash
@@ -18,3 +19,4 @@ pip install --pre torch torchvision --index-url https://download.pytorch.org/whl
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 ```
 (Or `cu124` / `cu118` for other CUDA versions.)
+
