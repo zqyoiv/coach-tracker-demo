@@ -3,6 +3,12 @@ import time
 from pathlib import Path
 from ultralytics import YOLO
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass
+
 # 1. Load model (n = nano, fastest for real-time; x = larger, more accurate)
 # model = YOLO("yolo11n.pt") 
 model = YOLO("yolo11x.pt") 
@@ -10,8 +16,11 @@ model = YOLO("yolo11x.pt")
 # Use absolute path for tracker config so it loads correctly regardless of cwd
 TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
 
+# Zone id for Mixpanel (set MIXPANEL_TOKEN env to send dwell events when person leaves)
+ZONE_ID = 1
+
 # Use Intel RealSense (pyrealsense2); set False to use OpenCV with a normal webcam
-USE_REALSENSE = True
+USE_REALSENSE = False
 CAMERA_INDEX = 0  # for OpenCV: 0 = default, 1 = second camera
 
 if USE_REALSENSE:
@@ -73,9 +82,15 @@ while True:
     # Detect who "left" this frame (was in previous frame, not in current) and log
     left_ids = previous_track_ids - current_track_ids
     for track_id in left_ids:
-        duration = time.time() - start_times.get(track_id, time.time())
+        start_t = start_times.get(track_id, time.time())
+        duration = time.time() - start_t
         print(f"Person ID:{track_id} left (was on screen for {duration:.1f}s)")
         ids_who_left.add(track_id)
+        try:
+            from mixpanel_logger import log_dwell
+            log_dwell(int(track_id), duration, ZONE_ID, start_t, time.time())
+        except ImportError:
+            pass
     # Who "returned" this frame = was in ids_who_left and is now visible again (same ID, timer continues)
     returned_ids = ids_who_left & current_track_ids
     for track_id in returned_ids:

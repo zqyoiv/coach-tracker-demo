@@ -2,3 +2,4 @@ yolo11n.pt
 yolo11x.pt
 
 venv/
+__pycache__/
