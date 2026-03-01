@@ -13,15 +13,22 @@ import torch
 from ultralytics import YOLO
 
 # Video to process (or pass as first command-line argument)
-VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/night-warm.mp4"
+# VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/night-warm.mp4"
+VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/angle-videos/eyelevel.mp4"
+
 
 # Speed: smaller = faster (480 or 640); use yolo11n.pt for much faster, less accurate
 IMG_SIZE = 480
 model = YOLO("yolo11x.pt")
+# Same config as realtime-tracker so same person keeps same ID when leaving/re-entering (track_buffer + ReID)
 TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
 
-# GPU + half precision when available (RTX 50 / Blackwell needs PyTorch nightly – see README)
+# Force CPU (set True to ignore GPU)
+USE_CPU = True
+
 def _get_device():
+    if USE_CPU:
+        return "cpu", False
     if not torch.cuda.is_available():
         return "cpu", False
     cap = torch.cuda.get_device_capability(0)
