@@ -115,8 +115,15 @@ class SupervisionZoneTracker:
                 self._prev_in_zone_by_id[tid_int] = False
 
         frame = self.zone_annotator.annotate(scene=frame)
-        out = self.heatmap_annotator.annotate(scene=frame, detections=detections)
-        frame = out[0] if isinstance(out, tuple) else out
+        # Run heatmap only when we have valid detections; suppress numpy divide/cast warnings from supervision
+        try:
+            has_boxes = len(detections) > 0 and np.isfinite(detections.xyxy).all()
+        except Exception:
+            has_boxes = False
+        if has_boxes:
+            with np.errstate(invalid="ignore", divide="ignore"):
+                out = self.heatmap_annotator.annotate(scene=frame, detections=detections)
+            frame = out[0] if isinstance(out, tuple) else out
 
         people_in_zone = sum(1 for v in in_zone if v)
         return frame, people_in_zone, in_zone, tracker_ids

@@ -14,9 +14,24 @@ except ImportError:
 # Supervision: polygon zone + people in zone + time in zone + heatmap (set False to disable)
 USE_SUPERVISION = True
 
-# 1. Load model (n = nano, fastest for real-time; x = larger, more accurate)
-# model = YOLO("yolo11n.pt") 
-model = YOLO("yolo11x.pt") 
+# 1. Load model. Use a local .pt path, Ultralytics name (e.g. yolo11x.pt), or Hugging Face repo (e.g. mshamrai/yolov8s-visdrone).
+# MODEL_SOURCE = "mshamrai/yolov8s-visdrone"  # or "yolo11x.pt", "yolo11n.pt", etc.
+MODEL_SOURCE = "yolo11x.pt" 
+
+def _load_model(source: str):
+    if "/" in source and not source.endswith(".pt"):
+        try:
+            from huggingface_hub import hf_hub_download
+            path = hf_hub_download(repo_id=source, filename="best.pt")
+            return YOLO(path)
+        except Exception as e:
+            raise FileNotFoundError(
+                f"Hugging Face model '{source}' could not be loaded. Install: pip install huggingface_hub. Error: {e}"
+            ) from e
+    return YOLO(source)
+
+
+model = _load_model(MODEL_SOURCE)
 
 # Use absolute path for tracker config so it loads correctly regardless of cwd
 TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
