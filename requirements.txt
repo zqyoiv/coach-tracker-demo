@@ -2,3 +2,4 @@ ultralytics
 opencv-python
 pyrealsense2
 python-dotenv
+supervision

@@ -1,13 +1,18 @@
 import cv2
 import time
 from pathlib import Path
+import numpy as np
 from ultralytics import YOLO
+from supervision_helpers import SupervisionZoneTracker
 
 try:
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).resolve().parent / ".env")
 except ImportError:
     pass
+
+# Supervision: polygon zone + people in zone + time in zone + heatmap (set False to disable)
+USE_SUPERVISION = True
 
 # 1. Load model (n = nano, fastest for real-time; x = larger, more accurate)
 # model = YOLO("yolo11n.pt") 
@@ -36,8 +41,8 @@ else:
 # Create a named window that can be resized
 cv2.namedWindow("Store Monitor", cv2.WINDOW_NORMAL) 
 
-# Set the window size (Width, Height) - adjust these numbers to fit your screen
-cv2.resizeWindow("Store Monitor", 800, 450)
+# Set the window size (Width, Height)
+cv2.resizeWindow("Store Monitor", 1920, 1080)
 
 # First-seen time per track ID; not cleared when person leaves so timer continues if same ID returns within track_buffer
 start_times = {}
@@ -45,6 +50,9 @@ start_times = {}
 previous_track_ids = set()
 # IDs that have left and not yet "returned"; used to log "returned" when they reappear
 ids_who_left = set()
+
+# Supervision helper (created lazily on first frame so it can see frame size)
+sv_helper = None
 
 while True:
     if USE_REALSENSE:
@@ -64,6 +72,9 @@ while True:
 
     # Mirror the frame horizontally (mirror/selfie view)
     frame = cv2.flip(frame, 1)
+
+    if USE_SUPERVISION and sv_helper is None:
+        sv_helper = SupervisionZoneTracker(frame.shape)
 
     # 3. Run tracking (persist=True keeps same ID across frames; classes=[0] = person only)
     results = model.track(
@@ -98,6 +109,40 @@ while True:
         ids_who_left.discard(track_id)
     previous_track_ids = current_track_ids
 
+    # Supervision: update zone + time-in-zone + heatmap
+    people_in_zone = 0
+    in_zone_flags = []
+    zone_tracker_ids = []
+    if USE_SUPERVISION and sv_helper is not None:
+        frame, people_in_zone, in_zone_flags, zone_tracker_ids = sv_helper.update(
+            frame, results[0]
+        )
+        cv2.putText(
+            frame,
+            f"People in zone: {people_in_zone}",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 0),
+            2,
+        )
+        if zone_tracker_ids:
+            y_off = 55
+            for inside, tid in zip(in_zone_flags, zone_tracker_ids):
+                if not inside or tid is None:
+                    continue
+                t_sec = sv_helper.get_zone_time(tid)
+                cv2.putText(
+                    frame,
+                    f"ID:{int(tid)} time in zone: {t_sec:.1f}s",
+                    (10, y_off),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 200),
+                    1,
+                )
+                y_off += 22
+
     # Draw results if any detections
     if results[0].boxes.id is not None:
         boxes = results[0].boxes.xyxy.cpu().numpy()  # bbox coordinates
@@ -108,14 +153,24 @@ while True:
             if track_id not in start_times:
                 start_times[track_id] = time.time()
 
-            # Elapsed time on screen
+            # Elapsed time on screen (whole frame) and in zone (if any)
             duration = time.time() - start_times[track_id]
+            zone_duration = (
+                sv_helper.get_zone_time(track_id) if sv_helper is not None else 0.0
+            )
 
-            # Draw box and label on frame
+            # Draw box and label on frame, showing both overall and in-zone time
             x1, y1, x2, y2 = map(int, box)
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, f"ID:{track_id} Time:{duration:.1f}s", (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv2.putText(
+                frame,
+                f"ID:{track_id} T:{duration:.1f}s Z:{zone_duration:.1f}s",
+                (x1, max(y1 - 10, 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                2,
+            )
 
     # Show the window
     cv2.imshow("Store Monitor", frame)
