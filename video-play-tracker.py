@@ -44,7 +44,7 @@ def _is_valid_person_box(box, min_w, min_h, min_area, max_aspect):
     return True
 
 # Video to process (or pass as first command-line argument)
-VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/test-video/Videos_MERL_Shopping_Dataset/Videos_MERL_Shopping_Dataset/1_1_crop.mp4"
+VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/daylight-cloudy.mp4"
 
 # --- Model: standard COCO vs drone/top-down ---
 # Standard (frontal/side view; often misses 90° top-down):
@@ -57,7 +57,8 @@ VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/test-video/Videos_MERL_Shoppi
 #   3) Mahadih534/YoloV8-VisDrone — YOLOv8 for small objects from aerial/drone
 # For (1) the HF file is not "best.pt", so use the tuple form.
 # If nothing works well for true 90° top-down: fine-tune on 50–200 labeled frames from your camera (Ultralytics train custom data).
-MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
+MODEL_SOURCE = "yolo11s.pt"   # COCO person (main model; tracker assigns IDs)
+# MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
 # MODEL_SOURCE = "mshamrai/yolov8s-visdrone"
 # MODEL_SOURCE = "yolo11x.pt"
 
@@ -79,9 +80,9 @@ MIN_BOX_HEIGHT_PX = 40
 MIN_BOX_AREA_PX = 2500          # width*height; avoids tiny detections
 MAX_ASPECT_RATIO = 3.5          # max(longer/shorter); thin poles/stands have high ratio
 
-# --- Ensemble: run a second model and show its detections if the main model missed ---
-USE_ENSEMBLE = True
-ENSEMBLE_MODEL_SOURCE = "yolo11s.pt"
+# --- Ensemble: optional second model (e.g. VisDrone) when main misses; yellow "det" boxes ---
+USE_ENSEMBLE = False
+ENSEMBLE_MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
 ENSEMBLE_CONF = 0.15            # raise to reduce ensemble false positives (e.g. poles)
 ENSEMBLE_IOU_OVERLAP = 0.4
 
@@ -119,7 +120,8 @@ ensemble_model = _load_model(ENSEMBLE_MODEL_SOURCE) if USE_ENSEMBLE else None
 if USE_ENSEMBLE:
     print(f"Ensemble enabled: second model {ENSEMBLE_MODEL_SOURCE} (yellow boxes when main misses)")
 
-TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
+# Use video-specific tracker with lower track_high_thresh so low-conf (e.g. top-down) detections get IDs
+TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker-video.yaml")
 ZONE_ID = 1
 USE_CPU = False
 
