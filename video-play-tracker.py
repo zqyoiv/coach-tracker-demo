@@ -8,35 +8,116 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
 import cv2
 import torch
 from ultralytics import YOLO
 
-# Video to process (or pass as first command-line argument)
-# VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/daylight-cloudy.mp4"
-VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/test-video/Videos_MERL_Shopping_Dataset/Videos_MERL_Shopping_Dataset/1_1_crop.mp4"
-# --- Detection tuning for top-down / unusual angles (e.g. overhead 90° view) ---
-# Larger model (s/m/l/x) and lower conf often help when the person is barely visible or from above.
-MODEL_SOURCE = "yolo11x.pt"  # try yolo11s.pt or yolo11m.pt if x is too slow; n often misses top-down
-IMG_SIZE = 640              # larger = more detail (helps odd angles), slower; try 480 if too slow
-CONF_THRESHOLD = 0.15       # lower = more detections (helps top-down), more false positives; default 0.25
-IOU_THRESHOLD = 0.5         # NMS overlap threshold; default 0.7
-# MODEL_SOURCE = "mshamrai/yolov8s-visdrone"  # alternative: different classes 
 
-def _load_model(source: str):
-    if "/" in source and not source.endswith(".pt"):
+def _box_iou(box_a, box_b):
+    """IoU of two boxes, each (x1, y1, x2, y2)."""
+    x1 = max(box_a[0], box_b[0])
+    y1 = max(box_a[1], box_b[1])
+    x2 = min(box_a[2], box_b[2])
+    y2 = min(box_a[3], box_b[3])
+    inter = max(0, x2 - x1) * max(0, y2 - y1)
+    area_a = (box_a[2] - box_a[0]) * (box_a[3] - box_a[1])
+    area_b = (box_b[2] - box_b[0]) * (box_b[3] - box_b[1])
+    union = area_a + area_b - inter
+    return inter / union if union > 0 else 0.0
+
+
+def _is_valid_person_box(box, min_w, min_h, min_area, max_aspect):
+    """Filter out small and thin (pole/stand) false positives. box = (x1,y1,x2,y2)."""
+    w = box[2] - box[0]
+    h = box[3] - box[1]
+    if w < min_w or h < min_h:
+        return False
+    if w * h < min_area:
+        return False
+    longer = max(w, h)
+    shorter = min(w, h)
+    if shorter <= 0:
+        return False
+    if longer / shorter > max_aspect:
+        return False
+    return True
+
+# Video to process (or pass as first command-line argument)
+VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/test-video/Videos_MERL_Shopping_Dataset/Videos_MERL_Shopping_Dataset/1_1_crop.mp4"
+
+# --- Model: standard COCO vs drone/top-down ---
+# Standard (frontal/side view; often misses 90° top-down):
+#   MODEL_SOURCE = "yolo11x.pt"   # or yolo11n.pt, yolo11s.pt, yolo11m.pt
+#   TRACK_CLASSES = [0]           # COCO class 0 = person
+#
+# Drone / top-down options (trained on aerial/overhead data; use TRACK_CLASSES below):
+#   1) erbayat/yolov11s-visdrone  — YOLOv11s on VisDrone (pedestrian + people)
+#   2) mshamrai/yolov8s-visdrone  — YOLOv8s on VisDrone
+#   3) Mahadih534/YoloV8-VisDrone — YOLOv8 for small objects from aerial/drone
+# For (1) the HF file is not "best.pt", so use the tuple form.
+# If nothing works well for true 90° top-down: fine-tune on 50–200 labeled frames from your camera (Ultralytics train custom data).
+MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
+# MODEL_SOURCE = "mshamrai/yolov8s-visdrone"
+# MODEL_SOURCE = "yolo11x.pt"
+
+# VisDrone classes: 0=pedestrian, 1=people (both count as person). COCO: 0=person only.
+def _is_visdrone_model(src):
+    if isinstance(src, (tuple, list)) and len(src) >= 1:
+        return "visdrone" in str(src[0]).lower()
+    return isinstance(src, str) and "visdrone" in src.lower()
+TRACK_CLASSES = [0, 1] if _is_visdrone_model(MODEL_SOURCE) else [0]
+
+# --- Detection tuning for top-down / unusual angles ---
+IMG_SIZE = 640
+CONF_THRESHOLD = 0.08
+IOU_THRESHOLD = 0.5
+
+# Filter out non-person false positives (small blobs, thin poles/stands)
+MIN_BOX_WIDTH_PX = 40
+MIN_BOX_HEIGHT_PX = 40
+MIN_BOX_AREA_PX = 2500          # width*height; avoids tiny detections
+MAX_ASPECT_RATIO = 3.5          # max(longer/shorter); thin poles/stands have high ratio
+
+# --- Ensemble: run a second model and show its detections if the main model missed ---
+USE_ENSEMBLE = True
+ENSEMBLE_MODEL_SOURCE = "yolo11s.pt"
+ENSEMBLE_CONF = 0.15            # raise to reduce ensemble false positives (e.g. poles)
+ENSEMBLE_IOU_OVERLAP = 0.4
+
+
+def _load_model(source):
+    if isinstance(source, (tuple, list)) and len(source) >= 2:
+        repo_id, filename = source[0], source[1]
         try:
             from huggingface_hub import hf_hub_download
-            path = hf_hub_download(repo_id=source, filename="best.pt")
+            print(f"Downloading/loading VisDrone model from Hugging Face: {repo_id} ({filename}) ...")
+            path = hf_hub_download(repo_id=repo_id, filename=filename)
+            print(f"Using model at: {path}")
             return YOLO(path)
         except Exception as e:
             raise FileNotFoundError(
-                f"Hugging Face model '{source}' could not be loaded. Install: pip install huggingface_hub. Error: {e}"
+                f"Hugging Face model '{repo_id}' ({filename}) could not be loaded. Error: {e}"
             ) from e
+    if isinstance(source, str) and "/" in source and not source.endswith(".pt"):
+        try:
+            from huggingface_hub import hf_hub_download
+            print(f"Downloading/loading model from Hugging Face: {source} (best.pt) ...")
+            path = hf_hub_download(repo_id=source, filename="best.pt")
+            print(f"Using model at: {path}")
+            return YOLO(path)
+        except Exception as e:
+            raise FileNotFoundError(
+                f"Hugging Face model '{source}' could not be loaded. Error: {e}"
+            ) from e
+    print(f"Using local/Ultralytics model: {source}")
     return YOLO(source)
 
 
 model = _load_model(MODEL_SOURCE)
+ensemble_model = _load_model(ENSEMBLE_MODEL_SOURCE) if USE_ENSEMBLE else None
+if USE_ENSEMBLE:
+    print(f"Ensemble enabled: second model {ENSEMBLE_MODEL_SOURCE} (yellow boxes when main misses)")
 
 TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
 ZONE_ID = 1
@@ -103,7 +184,7 @@ def main():
         results = model.track(
             frame,
             persist=True,
-            classes=[0],
+            classes=TRACK_CLASSES,
             tracker=TRACKER_CFG,
             imgsz=IMG_SIZE,
             device=DEVICE,
@@ -114,10 +195,16 @@ def main():
         )
 
         t_sec = (frame_idx - 1) * frame_duration
+        main_boxes = []
         if results[0].boxes.id is not None:
             boxes = results[0].boxes.xyxy.cpu().numpy()
             track_ids = results[0].boxes.id.int().cpu().tolist()
             for box, track_id in zip(boxes, track_ids):
+                if not _is_valid_person_box(
+                    box, MIN_BOX_WIDTH_PX, MIN_BOX_HEIGHT_PX, MIN_BOX_AREA_PX, MAX_ASPECT_RATIO
+                ):
+                    continue
+                main_boxes.append(box)
                 time_on_screen[track_id] = time_on_screen.get(track_id, 0.0) + frame_duration
                 if track_id not in first_seen_sec:
                     first_seen_sec[track_id] = t_sec
@@ -135,6 +222,39 @@ def main():
                     (0, 255, 0),
                     2,
                 )
+
+        # Ensemble: run second model and draw detections main model missed (yellow)
+        if USE_ENSEMBLE and ensemble_model is not None:
+            ens = ensemble_model.predict(
+                frame,
+                classes=[0],
+                imgsz=IMG_SIZE,
+                device=DEVICE,
+                half=HALF,
+                conf=ENSEMBLE_CONF,
+                iou=IOU_THRESHOLD,
+                verbose=False,
+            )
+            if ens and len(ens[0].boxes) > 0:
+                ens_boxes = ens[0].boxes.xyxy.cpu().numpy()
+                for box in ens_boxes:
+                    if not _is_valid_person_box(
+                        box, MIN_BOX_WIDTH_PX, MIN_BOX_HEIGHT_PX, MIN_BOX_AREA_PX, MAX_ASPECT_RATIO
+                    ):
+                        continue
+                    if any(_box_iou(box, mb) >= ENSEMBLE_IOU_OVERLAP for mb in main_boxes):
+                        continue
+                    x1, y1, x2, y2 = map(int, box)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
+                    cv2.putText(
+                        frame,
+                        "det",
+                        (x1, max(y1 - 8, 20)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (0, 255, 255),
+                        2,
+                    )
 
         # Frame counter overlay
         cv2.putText(
