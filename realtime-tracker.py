@@ -1,9 +1,11 @@
+import os
 import cv2
 import time
 from pathlib import Path
 import numpy as np
 from ultralytics import YOLO
 from supervision_helpers import SupervisionZoneTracker
+from person_id_cache import PersonFeatureCache, extract_feature
 
 try:
     from dotenv import load_dotenv
@@ -11,12 +13,21 @@ try:
 except ImportError:
     pass
 
-# Supervision: polygon zone + people in zone + time in zone + heatmap (set False to disable)
-USE_SUPERVISION = True
+def _env_bool(key: str, default: bool = True) -> bool:
+    v = os.environ.get(key, str(default)).strip().lower()
+    return v in ("1", "true", "yes")
 
-# 1. Load model. Use a local .pt path, Ultralytics name (e.g. yolo11x.pt), or Hugging Face repo (e.g. mshamrai/yolov8s-visdrone).
-# MODEL_SOURCE = "mshamrai/yolov8s-visdrone"  # or "yolo11x.pt", "yolo11n.pt", etc.
-MODEL_SOURCE = "yolo11x.pt" 
+# --- Flags / config (all at top) ---
+# Boolean flags (USE_PERSON_CACHE, USE_SUPERVISION read from .env)
+USE_SUPERVISION = _env_bool("USE_SUPERVISION", True)
+USE_REALSENSE = False
+USE_PERSON_CACHE = _env_bool("USE_PERSON_CACHE", True)
+# Paths and numbers
+MODEL_SOURCE = "yolo11x.pt"
+TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
+ZONE_ID = 1
+CAMERA_INDEX = 0
+CACHE_MATCH_THRESH = 0.75
 
 def _load_model(source: str):
     if "/" in source and not source.endswith(".pt"):
@@ -32,16 +43,6 @@ def _load_model(source: str):
 
 
 model = _load_model(MODEL_SOURCE)
-
-# Use absolute path for tracker config so it loads correctly regardless of cwd
-TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
-
-# Zone id for Mixpanel (set MIXPANEL_TOKEN env to send dwell events when person leaves)
-ZONE_ID = 1
-
-# Use Intel RealSense (pyrealsense2); set False to use OpenCV with a normal webcam
-USE_REALSENSE = False
-CAMERA_INDEX = 0  # for OpenCV: 0 = default, 1 = second camera
 
 if USE_REALSENSE:
     import pyrealsense2 as rs
@@ -68,6 +69,9 @@ ids_who_left = set()
 
 # Supervision helper (created lazily on first frame so it can see frame size)
 sv_helper = None
+person_cache = PersonFeatureCache(match_thresh=CACHE_MATCH_THRESH) if USE_PERSON_CACHE else None
+if USE_PERSON_CACHE:
+    print("Person ID cache enabled: new tracker IDs will be matched to previously seen people.")
 
 while True:
     if USE_REALSENSE:
@@ -99,38 +103,48 @@ while True:
         tracker=TRACKER_CFG,
         verbose=False)
 
-    # Track IDs visible in current frame
-    current_track_ids = set(
-        results[0].boxes.id.int().cpu().tolist()
-        if results[0].boxes.id is not None
-        else []
-    )
+    # Resolve tracker IDs to canonical IDs via person cache (one pass per detection)
+    current_detections = []  # list of (box, track_id, resolved_id)
+    if results[0].boxes.id is not None:
+        boxes = results[0].boxes.xyxy.cpu().numpy()
+        track_ids = results[0].boxes.id.int().cpu().tolist()
+        for box, track_id in zip(boxes, track_ids):
+            if person_cache is not None:
+                feat = extract_feature(frame, box)
+                resolved_id = person_cache.resolve(track_id, feat)
+            else:
+                resolved_id = track_id
+            current_detections.append((box, track_id, resolved_id))
+    current_track_ids = {r for (_, _, r) in current_detections}
     # Detect who "left" this frame (was in previous frame, not in current) and log
     left_ids = previous_track_ids - current_track_ids
-    for track_id in left_ids:
-        start_t = start_times.get(track_id, time.time())
+    for resolved_id in left_ids:
+        start_t = start_times.get(resolved_id, time.time())
         duration = time.time() - start_t
-        print(f"Person ID:{track_id} left (was on screen for {duration:.1f}s)")
-        ids_who_left.add(track_id)
+        print(f"Person ID:{resolved_id} left (was on screen for {duration:.1f}s)")
+        ids_who_left.add(resolved_id)
         try:
             from mixpanel_logger import log_dwell
-            log_dwell(int(track_id), duration, ZONE_ID, start_t, time.time())
+            log_dwell(int(resolved_id), duration, ZONE_ID, start_t, time.time())
         except ImportError:
             pass
     # Who "returned" this frame = was in ids_who_left and is now visible again (same ID, timer continues)
     returned_ids = ids_who_left & current_track_ids
-    for track_id in returned_ids:
-        print(f"Person ID:{track_id} returned (timer continues)")
-        ids_who_left.discard(track_id)
+    for resolved_id in returned_ids:
+        print(f"Person ID:{resolved_id} returned (timer continues)")
+        ids_who_left.discard(resolved_id)
     previous_track_ids = current_track_ids
 
-    # Supervision: update zone + time-in-zone + heatmap
+    # Supervision: update zone + time-in-zone + heatmap (use resolved IDs so same person = one ID)
     people_in_zone = 0
     in_zone_flags = []
-    zone_tracker_ids = []
+    zone_display_ids = []
     if USE_SUPERVISION and sv_helper is not None:
-        frame, people_in_zone, in_zone_flags, zone_tracker_ids = sv_helper.update(
-            frame, results[0]
+        track_id_to_resolved = (
+            {tid: rid for (_, tid, rid) in current_detections} if person_cache else None
+        )
+        frame, people_in_zone, in_zone_flags, zone_display_ids = sv_helper.update(
+            frame, results[0], track_id_to_resolved=track_id_to_resolved
         )
         cv2.putText(
             frame,
@@ -141,15 +155,15 @@ while True:
             (0, 255, 0),
             2,
         )
-        if zone_tracker_ids:
+        if zone_display_ids:
             y_off = 55
-            for inside, tid in zip(in_zone_flags, zone_tracker_ids):
-                if not inside or tid is None:
+            for inside, rid in zip(in_zone_flags, zone_display_ids):
+                if not inside or rid is None:
                     continue
-                t_sec = sv_helper.get_zone_time(tid)
+                t_sec = sv_helper.get_zone_time(rid)
                 cv2.putText(
                     frame,
-                    f"ID:{int(tid)} time in zone: {t_sec:.1f}s",
+                    f"ID:{int(rid)} time in zone: {t_sec:.1f}s",
                     (10, y_off),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
@@ -159,33 +173,26 @@ while True:
                 y_off += 22
 
     # Draw results if any detections
-    if results[0].boxes.id is not None:
-        boxes = results[0].boxes.xyxy.cpu().numpy()  # bbox coordinates
-        track_ids = results[0].boxes.id.int().cpu().tolist()  # unique ID per person
+    for box, track_id, resolved_id in current_detections:
+        if resolved_id not in start_times:
+            start_times[resolved_id] = time.time()
 
-        for box, track_id in zip(boxes, track_ids):
-            # New ID: record start time; if same ID returns within track_buffer, we don't reset, timer continues
-            if track_id not in start_times:
-                start_times[track_id] = time.time()
+        duration = time.time() - start_times[resolved_id]
+        zone_duration = (
+            sv_helper.get_zone_time(resolved_id) if sv_helper is not None else 0.0
+        )
 
-            # Elapsed time on screen (whole frame) and in zone (if any)
-            duration = time.time() - start_times[track_id]
-            zone_duration = (
-                sv_helper.get_zone_time(track_id) if sv_helper is not None else 0.0
-            )
-
-            # Draw box and label on frame, showing both overall and in-zone time
-            x1, y1, x2, y2 = map(int, box)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(
-                frame,
-                f"ID:{track_id} T:{duration:.1f}s Z:{zone_duration:.1f}s",
-                (x1, max(y1 - 10, 20)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0, 255, 0),
-                2,
-            )
+        x1, y1, x2, y2 = map(int, box)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(
+            frame,
+            f"ID:{resolved_id} T:{duration:.1f}s Z:{zone_duration:.1f}s",
+            (x1, max(y1 - 10, 20)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 255, 0),
+            2,
+        )
 
     # Show the window
     cv2.imshow("Store Monitor", frame)

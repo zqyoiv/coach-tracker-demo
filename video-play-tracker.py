@@ -4,6 +4,7 @@ Usage: python video-play-tracker.py <video_path>
 
 Press 'q' to quit early. Speed: uses GPU + FP16 if available.
 """
+import os
 import sys
 import time
 from pathlib import Path
@@ -12,6 +13,46 @@ import numpy as np
 import cv2
 import torch
 from ultralytics import YOLO
+
+from person_id_cache import PersonFeatureCache, extract_feature
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass
+
+def _env_bool(key: str, default: bool = True) -> bool:
+    v = os.environ.get(key, str(default)).strip().lower()
+    return v in ("1", "true", "yes")
+
+# --- Flags / config (all at top) ---
+# Boolean flags (USE_PERSON_CACHE, USE_SUPERVISION read from .env)
+USE_ENSEMBLE = False
+USE_PERSON_CACHE = _env_bool("USE_PERSON_CACHE", True)
+USE_SUPERVISION = _env_bool("USE_SUPERVISION", True)
+USE_CPU = False
+# Paths and numbers
+VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/angle-videos/30topdown.mp4"
+MODEL_SOURCE = "yolo11s.pt"
+TRACK_CLASSES = [0, 1] if ("visdrone" in (str(MODEL_SOURCE[0]) if isinstance(MODEL_SOURCE, (tuple, list)) else str(MODEL_SOURCE)).lower()) else [0]
+IMG_SIZE = 640
+CONF_THRESHOLD = 0.08
+IOU_THRESHOLD = 0.5
+MIN_BOX_WIDTH_PX = 40
+MIN_BOX_HEIGHT_PX = 40
+MIN_BOX_AREA_PX = 2500
+MAX_ASPECT_RATIO = 3.5
+ENSEMBLE_MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
+ENSEMBLE_CONF = 0.15
+ENSEMBLE_IOU_OVERLAP = 0.4
+CACHE_MATCH_THRESH = 0.75
+TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker-video.yaml")
+ZONE_ID = 1
+WINDOW_NAME = "Video Play Tracker"
+
+if USE_SUPERVISION:
+    from supervision_helpers import SupervisionZoneTracker
 
 
 def _box_iou(box_a, box_b):
@@ -42,49 +83,6 @@ def _is_valid_person_box(box, min_w, min_h, min_area, max_aspect):
     if longer / shorter > max_aspect:
         return False
     return True
-
-# Video to process (or pass as first command-line argument)
-VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/daylight-cloudy.mp4"
-
-# --- Model: standard COCO vs drone/top-down ---
-# Standard (frontal/side view; often misses 90° top-down):
-#   MODEL_SOURCE = "yolo11x.pt"   # or yolo11n.pt, yolo11s.pt, yolo11m.pt
-#   TRACK_CLASSES = [0]           # COCO class 0 = person
-#
-# Drone / top-down options (trained on aerial/overhead data; use TRACK_CLASSES below):
-#   1) erbayat/yolov11s-visdrone  — YOLOv11s on VisDrone (pedestrian + people)
-#   2) mshamrai/yolov8s-visdrone  — YOLOv8s on VisDrone
-#   3) Mahadih534/YoloV8-VisDrone — YOLOv8 for small objects from aerial/drone
-# For (1) the HF file is not "best.pt", so use the tuple form.
-# If nothing works well for true 90° top-down: fine-tune on 50–200 labeled frames from your camera (Ultralytics train custom data).
-MODEL_SOURCE = "yolo11s.pt"   # COCO person (main model; tracker assigns IDs)
-# MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
-# MODEL_SOURCE = "mshamrai/yolov8s-visdrone"
-# MODEL_SOURCE = "yolo11x.pt"
-
-# VisDrone classes: 0=pedestrian, 1=people (both count as person). COCO: 0=person only.
-def _is_visdrone_model(src):
-    if isinstance(src, (tuple, list)) and len(src) >= 1:
-        return "visdrone" in str(src[0]).lower()
-    return isinstance(src, str) and "visdrone" in src.lower()
-TRACK_CLASSES = [0, 1] if _is_visdrone_model(MODEL_SOURCE) else [0]
-
-# --- Detection tuning for top-down / unusual angles ---
-IMG_SIZE = 640
-CONF_THRESHOLD = 0.08
-IOU_THRESHOLD = 0.5
-
-# Filter out non-person false positives (small blobs, thin poles/stands)
-MIN_BOX_WIDTH_PX = 40
-MIN_BOX_HEIGHT_PX = 40
-MIN_BOX_AREA_PX = 2500          # width*height; avoids tiny detections
-MAX_ASPECT_RATIO = 3.5          # max(longer/shorter); thin poles/stands have high ratio
-
-# --- Ensemble: optional second model (e.g. VisDrone) when main misses; yellow "det" boxes ---
-USE_ENSEMBLE = False
-ENSEMBLE_MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
-ENSEMBLE_CONF = 0.15            # raise to reduce ensemble false positives (e.g. poles)
-ENSEMBLE_IOU_OVERLAP = 0.4
 
 
 def _load_model(source):
@@ -119,14 +117,8 @@ model = _load_model(MODEL_SOURCE)
 ensemble_model = _load_model(ENSEMBLE_MODEL_SOURCE) if USE_ENSEMBLE else None
 if USE_ENSEMBLE:
     print(f"Ensemble enabled: second model {ENSEMBLE_MODEL_SOURCE} (yellow boxes when main misses)")
-
-# Use video-specific tracker with lower track_high_thresh so low-conf (e.g. top-down) detections get IDs
-TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker-video.yaml")
-ZONE_ID = 1
-USE_CPU = False
-
-WINDOW_NAME = "Video Play Tracker"
-
+if USE_SUPERVISION:
+    print("Supervision enabled: zone, people in zone, time in zone, heatmap.")
 
 def _get_device():
     if USE_CPU:
@@ -169,6 +161,10 @@ def main():
     time_on_screen = {}
     first_seen_sec = {}
     last_seen_sec = {}
+    person_cache = PersonFeatureCache(match_thresh=CACHE_MATCH_THRESH) if USE_PERSON_CACHE else None
+    sv_helper = None
+    if USE_PERSON_CACHE:
+        print("Person feature cache enabled: new tracker IDs will be matched to previously seen people.")
 
     print(f"Playing with tracking: {video_path} ({total_frames} frames @ {fps:.1f} fps). Press 'q' to quit.")
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
@@ -198,6 +194,11 @@ def main():
 
         t_sec = (frame_idx - 1) * frame_duration
         main_boxes = []
+        current_detections = []
+        track_id_to_resolved = {}
+        people_in_zone = 0
+        in_zone_flags = []
+        zone_display_ids = []
         if results[0].boxes.id is not None:
             boxes = results[0].boxes.xyxy.cpu().numpy()
             track_ids = results[0].boxes.id.int().cpu().tolist()
@@ -207,23 +208,69 @@ def main():
                 ):
                     continue
                 main_boxes.append(box)
-                time_on_screen[track_id] = time_on_screen.get(track_id, 0.0) + frame_duration
-                if track_id not in first_seen_sec:
-                    first_seen_sec[track_id] = t_sec
-                last_seen_sec[track_id] = t_sec + frame_duration
+                if person_cache is not None:
+                    feat = extract_feature(frame, box)
+                    resolved_id = person_cache.resolve(track_id, feat)
+                else:
+                    resolved_id = track_id
+                track_id_to_resolved[track_id] = resolved_id
+                current_detections.append((box, track_id, resolved_id))
+                time_on_screen[resolved_id] = time_on_screen.get(resolved_id, 0.0) + frame_duration
+                if resolved_id not in first_seen_sec:
+                    first_seen_sec[resolved_id] = t_sec
+                last_seen_sec[resolved_id] = t_sec + frame_duration
 
-                x1, y1, x2, y2 = map(int, box)
-                duration = time_on_screen[track_id]
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(
-                    frame,
-                    f"ID:{track_id} {duration:.1f}s",
-                    (x1, max(y1 - 8, 20)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (0, 255, 0),
-                    2,
-                )
+        if USE_SUPERVISION and sv_helper is None and frame is not None:
+            sv_helper = SupervisionZoneTracker(frame.shape)
+        if USE_SUPERVISION and sv_helper is not None:
+            frame, people_in_zone, in_zone_flags, zone_display_ids = sv_helper.update(
+                frame, results[0], track_id_to_resolved=track_id_to_resolved
+            )
+            cv2.putText(
+                frame,
+                f"People in zone: {people_in_zone}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2,
+            )
+            if zone_display_ids:
+                y_off = 55
+                for inside, rid in zip(in_zone_flags, zone_display_ids):
+                    if not inside or rid is None:
+                        continue
+                    t_sec_z = sv_helper.get_zone_time(rid)
+                    cv2.putText(
+                        frame,
+                        f"ID:{int(rid)} time in zone: {t_sec_z:.1f}s",
+                        (10, y_off),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 200),
+                        1,
+                    )
+                    y_off += 22
+
+        for box, track_id, resolved_id in current_detections:
+            duration = time_on_screen[resolved_id]
+            zone_duration = (
+                sv_helper.get_zone_time(resolved_id) if (USE_SUPERVISION and sv_helper is not None) else 0.0
+            )
+            x1, y1, x2, y2 = map(int, box)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            label = f"ID:{resolved_id} {duration:.1f}s"
+            if USE_SUPERVISION and sv_helper is not None:
+                label += f" Z:{zone_duration:.1f}s"
+            cv2.putText(
+                frame,
+                label,
+                (x1, max(y1 - 8, 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                2,
+            )
 
         # Ensemble: run second model and draw detections main model missed (yellow)
         if USE_ENSEMBLE and ensemble_model is not None:
@@ -259,10 +306,13 @@ def main():
                     )
 
         # Frame counter overlay
+        fc_y = 30
+        if USE_SUPERVISION and sv_helper is not None and zone_display_ids:
+            fc_y = 55 + 22 * sum(1 for inside, rid in zip(in_zone_flags, zone_display_ids) if inside and rid is not None)
         cv2.putText(
             frame,
             f"Frame {frame_idx}/{total_frames}",
-            (10, 30),
+            (10, max(fc_y, 30)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (0, 255, 0),

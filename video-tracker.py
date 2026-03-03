@@ -4,6 +4,7 @@ Usage: python video-tracker.py <video_path>
 
 Speed: uses GPU + FP16 if available; reduce IMG_SIZE or use yolo11n.pt for faster runs.
 """
+import os
 import sys
 import time
 from pathlib import Path
@@ -12,22 +13,34 @@ import cv2
 import torch
 from ultralytics import YOLO
 
-# Video to process (or pass as first command-line argument)
-VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/daylight-cloudy.mp4"
-# VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/angle-videos/30topdown.mp4"
+from person_id_cache import PersonFeatureCache, extract_feature
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass
 
-# Speed: smaller = faster (480 or 640); use yolo11n.pt for much faster, less accurate
-IMG_SIZE = 480
-model = YOLO("yolo11x.pt")
-# Same config as realtime-tracker so same person keeps same ID when leaving/re-entering (track_buffer + ReID)
-TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
+def _env_bool(key: str, default: bool = True) -> bool:
+    v = os.environ.get(key, str(default)).strip().lower()
+    return v in ("1", "true", "yes")
 
-# Zone id for Mixpanel (set MIXPANEL_TOKEN env to send dwell events)
-ZONE_ID = 1
-
-# Force CPU (set True to ignore GPU)
+# --- Flags / config (all at top) ---
+# Boolean flags (USE_PERSON_CACHE, USE_SUPERVISION read from .env)
 USE_CPU = False
+USE_PERSON_CACHE = _env_bool("USE_PERSON_CACHE", True)
+USE_SUPERVISION = _env_bool("USE_SUPERVISION", True)
+# Paths and numbers
+VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/daylight-cloudy.mp4"
+IMG_SIZE = 480
+TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
+ZONE_ID = 1
+CACHE_MATCH_THRESH = 0.75
+
+if USE_SUPERVISION:
+    from supervision_helpers import SupervisionZoneTracker
+
+model = YOLO("yolo11x.pt")
 
 def _get_device():
     if USE_CPU:
@@ -67,8 +80,14 @@ def main():
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     time_on_screen = {}
-    first_seen_sec = {}  # first appearance time (sec from video start) per track_id
-    last_seen_sec = {}   # last appearance time per track_id
+    first_seen_sec = {}
+    last_seen_sec = {}
+    person_cache = PersonFeatureCache(match_thresh=CACHE_MATCH_THRESH) if USE_PERSON_CACHE else None
+    sv_helper = None
+    if USE_PERSON_CACHE:
+        print("Person ID cache enabled: new tracker IDs will be matched to previously seen people.")
+    if USE_SUPERVISION:
+        print("Supervision enabled: zone and time-in-zone will be reported.")
 
     print(f"Processing: {video_path} ({total_frames} frames @ {fps:.1f} fps)")
     dev_note = " (FP16)" if HALF else " (using CPU; install PyTorch nightly for RTX 50 GPU)" if (DEVICE == "cpu" and torch.cuda.is_available()) else ""
@@ -95,14 +114,28 @@ def main():
             verbose=False,
         )
 
+        if USE_SUPERVISION and sv_helper is None:
+            sv_helper = SupervisionZoneTracker(frame.shape)
+
         if results[0].boxes.id is not None:
+            boxes = results[0].boxes.xyxy.cpu().numpy()
             track_ids = results[0].boxes.id.int().cpu().tolist()
             t_sec = (frame_idx - 1) * frame_duration
-            for track_id in track_ids:
-                time_on_screen[track_id] = time_on_screen.get(track_id, 0.0) + frame_duration
-                if track_id not in first_seen_sec:
-                    first_seen_sec[track_id] = t_sec
-                last_seen_sec[track_id] = t_sec + frame_duration
+            track_id_to_resolved = {}
+            for box, track_id in zip(boxes, track_ids):
+                if person_cache is not None:
+                    feat = extract_feature(frame, box)
+                    resolved_id = person_cache.resolve(track_id, feat)
+                else:
+                    resolved_id = track_id
+                track_id_to_resolved[track_id] = resolved_id
+                time_on_screen[resolved_id] = time_on_screen.get(resolved_id, 0.0) + frame_duration
+                if resolved_id not in first_seen_sec:
+                    first_seen_sec[resolved_id] = t_sec
+                last_seen_sec[resolved_id] = t_sec + frame_duration
+
+            if USE_SUPERVISION and sv_helper is not None:
+                sv_helper.update(frame, results[0], track_id_to_resolved=track_id_to_resolved)
 
     cap.release()
     t_end = time.perf_counter()
@@ -119,11 +152,14 @@ def main():
         log_dwell = None
     for track_id in sorted(time_on_screen.keys(), key=lambda x: int(x)):
         secs = time_on_screen[track_id]
-        print(f"  Person {track_id} on screen for {secs:.1f} s")
+        zone_sec = sv_helper.get_zone_time(track_id) if (USE_SUPERVISION and sv_helper is not None) else None
+        if zone_sec is not None:
+            print(f"  Person {track_id} on screen for {secs:.1f} s, time in zone: {zone_sec:.1f} s")
+        else:
+            print(f"  Person {track_id} on screen for {secs:.1f} s")
         if log_dwell:
             start_sec = first_seen_sec.get(track_id, 0.0)
             end_sec = last_seen_sec.get(track_id, start_sec + secs)
-            # Use video start as epoch for start/end timestamps so Mixpanel gets relative times
             log_dwell(int(track_id), secs, ZONE_ID, t_start + start_sec, t_start + end_sec)
     print("--- end report ---")
 

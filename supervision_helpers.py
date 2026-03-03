@@ -1,5 +1,5 @@
 import time
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -34,36 +34,47 @@ class SupervisionZoneTracker:
             position=sv.Position.CENTER, opacity=0.4, radius=15, kernel_size=25
         )
 
-        # Cumulative time each ID has spent in the zone (seconds)
-        self.time_in_zone_sec = {}  # track_id -> seconds in zone
+        # Cumulative time each ID has spent in the zone (seconds); key = resolved_id when mapping provided
+        self.time_in_zone_sec = {}
         # For detecting "left zone" events between frames
-        self._prev_in_zone_by_id = {}  # track_id -> bool (was inside last frame)
+        self._prev_in_zone_by_id = {}
         self.last_frame_time = time.time()
 
     def update(
-        self, frame: np.ndarray, result
-    ) -> Tuple[np.ndarray, int, List[bool], List[int]]:
+        self,
+        frame: np.ndarray,
+        result,
+        track_id_to_resolved: Optional[Dict[int, int]] = None,
+    ) -> Tuple[np.ndarray, int, List[bool], List[Optional[int]]]:
         """
         Update zone/time/heatmap for a single YOLO result.
+
+        When track_id_to_resolved is provided (e.g. from person_id_cache), zone time
+        and "left zone" logs use resolved IDs so the same person keeps one ID.
 
         Returns:
             frame: annotated frame
             people_in_zone: count of detections overlapping the zone
             in_zone: list[bool] per detection
-            tracker_ids: list[int] per detection (may contain None)
+            ids_for_display: list of resolved_id (or tracker_id) per detection for display
         """
         detections = sv.Detections.from_ultralytics(result)
+        track_id_to_resolved = track_id_to_resolved or {}
 
         polygon = self.zone.polygon.astype(np.float32)
         in_zone: List[bool] = []
-        tracker_ids: List[int] = []
+        ids_for_display: List[Optional[int]] = []
 
         if len(detections) > 0:
             boxes_xyxy = detections.xyxy
-            if detections.tracker_id is not None:
-                tracker_ids = [int(t) for t in detections.tracker_id]
-            else:
-                tracker_ids = [None] * len(detections)
+            raw_tracker_ids = (
+                [int(t) for t in detections.tracker_id]
+                if detections.tracker_id is not None
+                else [None] * len(detections)
+            )
+            for tid in raw_tracker_ids:
+                rid = track_id_to_resolved.get(tid, tid) if tid is not None else None
+                ids_for_display.append(rid)
 
             for box in boxes_xyxy:
                 x1, y1, x2, y2 = map(float, box)
@@ -88,31 +99,29 @@ class SupervisionZoneTracker:
         if detections.tracker_id is not None and len(detections.tracker_id) == len(in_zone):
             for i, tid in enumerate(detections.tracker_id):
                 if in_zone[i]:
-                    tid_int = int(tid)
-                    self.time_in_zone_sec[tid_int] = (
-                        self.time_in_zone_sec.get(tid_int, 0.0) + delta
+                    rid = track_id_to_resolved.get(int(tid), int(tid))
+                    self.time_in_zone_sec[rid] = (
+                        self.time_in_zone_sec.get(rid, 0.0) + delta
                     )
 
-        # Log dwell time for IDs that just left the zone this frame
-        current_ids = set()
+        # Log dwell time for IDs that just left the zone (use resolved ID so same person = one ID)
+        current_resolved_ids = set()
         if detections.tracker_id is not None:
             for inside, tid in zip(in_zone, detections.tracker_id):
                 tid_int = int(tid)
-                current_ids.add(tid_int)
-                was_inside = self._prev_in_zone_by_id.get(tid_int, False)
-                # Transition: inside -> not inside
+                rid = track_id_to_resolved.get(tid_int, tid_int)
+                current_resolved_ids.add(rid)
+                was_inside = self._prev_in_zone_by_id.get(rid, False)
                 if was_inside and not inside:
-                    dwell = self.time_in_zone_sec.get(tid_int, 0.0)
-                    print(f"ID:{tid_int} left zone, dwell in zone so far: {dwell:.1f}s")
-                # Update prev state for this ID
-                self._prev_in_zone_by_id[tid_int] = inside
+                    dwell = self.time_in_zone_sec.get(rid, 0.0)
+                    print(f"ID:{rid} left zone, dwell in zone so far: {dwell:.1f}s")
+                self._prev_in_zone_by_id[rid] = inside
 
-        # Also handle IDs that disappeared from frame while they were inside the zone
-        for tid_int, was_inside in list(self._prev_in_zone_by_id.items()):
-            if was_inside and tid_int not in current_ids:
-                dwell = self.time_in_zone_sec.get(tid_int, 0.0)
-                print(f"ID:{tid_int} left zone (off screen), dwell in zone so far: {dwell:.1f}s")
-                self._prev_in_zone_by_id[tid_int] = False
+        for rid, was_inside in list(self._prev_in_zone_by_id.items()):
+            if was_inside and rid not in current_resolved_ids:
+                dwell = self.time_in_zone_sec.get(rid, 0.0)
+                print(f"ID:{rid} left zone (off screen), dwell in zone so far: {dwell:.1f}s")
+                self._prev_in_zone_by_id[rid] = False
 
         frame = self.zone_annotator.annotate(scene=frame)
         # Run heatmap only when we have valid detections; suppress numpy divide/cast warnings from supervision
@@ -126,8 +135,9 @@ class SupervisionZoneTracker:
             frame = out[0] if isinstance(out, tuple) else out
 
         people_in_zone = sum(1 for v in in_zone if v)
-        return frame, people_in_zone, in_zone, tracker_ids
+        return frame, people_in_zone, in_zone, ids_for_display
 
-    def get_zone_time(self, track_id: int) -> float:
-        return float(self.time_in_zone_sec.get(int(track_id), 0.0))
+    def get_zone_time(self, person_id: int) -> float:
+        """person_id should be resolved_id when using the cache."""
+        return float(self.time_in_zone_sec.get(int(person_id), 0.0))
 
