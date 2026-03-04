@@ -34,6 +34,7 @@ USE_SUPERVISION = _env_bool("USE_SUPERVISION", True)
 USE_CPU = False
 # Paths and numbers
 VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/angle-videos/30topdown.mp4"
+# VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/test-video/Videos_MERL_Shopping_Dataset/Videos_MERL_Shopping_Dataset/1_1_crop.mp4"
 MODEL_SOURCE = "yolo11s.pt"
 TRACK_CLASSES = [0, 1] if ("visdrone" in (str(MODEL_SOURCE[0]) if isinstance(MODEL_SOURCE, (tuple, list)) else str(MODEL_SOURCE)).lower()) else [0]
 IMG_SIZE = 640
@@ -47,7 +48,7 @@ ENSEMBLE_MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
 ENSEMBLE_CONF = 0.15
 ENSEMBLE_IOU_OVERLAP = 0.4
 CACHE_MATCH_THRESH = 0.75
-TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker-video.yaml")
+TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "vio-tracker-video.yaml")
 ZONE_ID = 1
 WINDOW_NAME = "Video Play Tracker"
 
@@ -199,16 +200,37 @@ def main():
         people_in_zone = 0
         in_zone_flags = []
         zone_display_ids = []
-        if results[0].boxes.id is not None:
-            boxes = results[0].boxes.xyxy.cpu().numpy()
-            track_ids = results[0].boxes.id.int().cpu().tolist()
-            for box, track_id in zip(boxes, track_ids):
+        # Green box + ID: use tracker IDs when present; else fallback to person-only detections
+        # so the same detections that drive the heatmap (class 0) are also drawn (no "heatmap but no box").
+        boxes = results[0].boxes.xyxy.cpu().numpy() if results[0].boxes.xyxy is not None else []
+        track_ids_raw = (
+            results[0].boxes.id.int().cpu().tolist()
+            if results[0].boxes.id is not None
+            else None
+        )
+        cls_raw = results[0].boxes.cls.cpu().numpy() if results[0].boxes.cls is not None else None
+        if len(boxes) > 0:
+            # Person-only: COCO class 0 (same filter as supervision heatmap)
+            person_ok = (
+                (cls_raw == 0) if cls_raw is not None and len(cls_raw) == len(boxes)
+                else np.ones(len(boxes), dtype=bool)
+            )
+            track_ids = (
+                track_ids_raw
+                if track_ids_raw is not None and len(track_ids_raw) == len(boxes)
+                else list(range(len(boxes)))
+            )
+            for i in range(len(boxes)):
+                if not person_ok[i]:
+                    continue
+                box = boxes[i]
                 if not _is_valid_person_box(
                     box, MIN_BOX_WIDTH_PX, MIN_BOX_HEIGHT_PX, MIN_BOX_AREA_PX, MAX_ASPECT_RATIO
                 ):
                     continue
+                track_id = track_ids[i]
                 main_boxes.append(box)
-                if person_cache is not None:
+                if person_cache is not None and track_ids_raw is not None:
                     feat = extract_feature(frame, box)
                     resolved_id = person_cache.resolve(track_id, feat)
                 else:
@@ -305,14 +327,14 @@ def main():
                         2,
                     )
 
-        # Frame counter overlay
-        fc_y = 30
+        # Frame counter overlay (always below "People in zone" / ID lines to avoid overlap)
+        fc_y = 55
         if USE_SUPERVISION and sv_helper is not None and zone_display_ids:
             fc_y = 55 + 22 * sum(1 for inside, rid in zip(in_zone_flags, zone_display_ids) if inside and rid is not None)
         cv2.putText(
             frame,
             f"Frame {frame_idx}/{total_frames}",
-            (10, max(fc_y, 30)),
+            (10, fc_y),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (0, 255, 0),

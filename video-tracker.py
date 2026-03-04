@@ -33,7 +33,7 @@ USE_SUPERVISION = _env_bool("USE_SUPERVISION", True)
 # Paths and numbers
 VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/daylight-cloudy.mp4"
 IMG_SIZE = 480
-TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
+TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
 ZONE_ID = 1
 CACHE_MATCH_THRESH = 0.75
 

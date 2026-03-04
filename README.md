@@ -26,9 +26,9 @@ No web server: scripts send events directly to Mixpanel when a person leaves (re
 **Files**
 - **realtime-tracker.py** — Live camera (or RealSense) person tracking; shows boxes and on-screen time, logs when someone leaves or returns.
 - **video-tracker.py** — Runs the same tracker on a video file and prints a report of time-on-screen per person (and processing stats).
-- **vio-tracker.yaml** — Tracker config shared by both scripts (BoT-SORT + ReID, buffer, thresholds). Tune this so one person keeps one ID across leave/re-enter.
+- **yaml/basic-tracker-config.yaml** — Tracker config shared by both scripts (BoT-SORT + ReID, buffer, thresholds). Tune this so one person keeps one ID across leave/re-enter.
 
-**vio-tracker.yaml parameters**
+**yaml/basic-tracker-config.yaml parameters**
 
 | Parameter | Type | Example values | Meaning |
 |-----------|------|----------------|---------|

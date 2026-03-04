@@ -24,7 +24,7 @@ USE_REALSENSE = False
 USE_PERSON_CACHE = _env_bool("USE_PERSON_CACHE", True)
 # Paths and numbers
 MODEL_SOURCE = "yolo11x.pt"
-TRACKER_CFG = str(Path(__file__).resolve().parent / "vio-tracker.yaml")
+TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
 ZONE_ID = 1
 CAMERA_INDEX = 0
 CACHE_MATCH_THRESH = 0.75

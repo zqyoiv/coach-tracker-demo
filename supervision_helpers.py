@@ -38,6 +38,9 @@ class SupervisionZoneTracker:
         self.time_in_zone_sec = {}
         # For detecting "left zone" events between frames
         self._prev_in_zone_by_id = {}
+        # For heatmap: only mark when person has moved (centroid displacement >= this many pixels)
+        self._heatmap_min_move_px = 2.0
+        self._prev_centroid_by_id: Dict[int, Tuple[float, float]] = {}
         self.last_frame_time = time.time()
 
     def update(
@@ -124,14 +127,41 @@ class SupervisionZoneTracker:
                 self._prev_in_zone_by_id[rid] = False
 
         frame = self.zone_annotator.annotate(scene=frame)
-        # Run heatmap only when we have valid detections; suppress numpy divide/cast warnings from supervision
+        # Heatmap: only person (class_id 0) and only when the person has moved (not static)
+        detections_for_heatmap = detections
+        if len(detections) > 0:
+            # Person-only: COCO class 0
+            if detections.class_id is not None:
+                person_mask = np.asarray(detections.class_id == 0)
+            else:
+                person_mask = np.ones(len(detections), dtype=bool)
+            # Moving-only: require centroid displacement from previous frame (when we have track IDs)
+            move_mask = np.ones(len(detections), dtype=bool)
+            if detections.tracker_id is not None and len(detections.tracker_id) == len(detections):
+                boxes = detections.xyxy
+                for i in range(len(detections)):
+                    x1, y1, x2, y2 = boxes[i]
+                    cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+                    tid = int(detections.tracker_id[i])
+                    prev = self._prev_centroid_by_id.get(tid)
+                    self._prev_centroid_by_id[tid] = (float(cx), float(cy))
+                    if prev is not None:
+                        dx = cx - prev[0]
+                        dy = cy - prev[1]
+                        if dx * dx + dy * dy < self._heatmap_min_move_px * self._heatmap_min_move_px:
+                            move_mask[i] = False
+            combined = person_mask & move_mask
+            if np.any(combined):
+                detections_for_heatmap = detections[combined]
+            else:
+                detections_for_heatmap = detections[[]]  # empty
         try:
-            has_boxes = len(detections) > 0 and np.isfinite(detections.xyxy).all()
+            has_boxes = len(detections_for_heatmap) > 0 and np.isfinite(detections_for_heatmap.xyxy).all()
         except Exception:
             has_boxes = False
         if has_boxes:
             with np.errstate(invalid="ignore", divide="ignore"):
-                out = self.heatmap_annotator.annotate(scene=frame, detections=detections)
+                out = self.heatmap_annotator.annotate(scene=frame, detections=detections_for_heatmap)
             frame = out[0] if isinstance(out, tuple) else out
 
         people_in_zone = sum(1 for v in in_zone if v)
