@@ -48,7 +48,7 @@ ENSEMBLE_MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
 ENSEMBLE_CONF = 0.15
 ENSEMBLE_IOU_OVERLAP = 0.4
 CACHE_MATCH_THRESH = 0.75
-TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "vio-tracker-video.yaml")
+TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
 ZONE_ID = 1
 WINDOW_NAME = "Video Play Tracker"
 
