@@ -1,8 +1,9 @@
-# Tuned so one person keeps one ID: long buffer, reluctant to create new tracks, loose ReID matching.
+# Tuned so one person keeps one ID: long buffer, loose ReID matching.
+# track_high_thresh + new_track_thresh low so tracker assigns IDs to all detections above model conf (e.g. 0.08).
 tracker_type: botsort
-track_high_thresh: 0.5
+track_high_thresh: 0.08
 track_low_thresh: 0.1
-new_track_thresh: 0.95
+new_track_thresh: 0.8
 track_buffer: 20000
 match_thresh: 0.4
 fuse_score: true
@@ -11,3 +12,4 @@ proximity_thresh: 0.3
 appearance_thresh: 0.3
 with_reid: true
 model: auto
+
