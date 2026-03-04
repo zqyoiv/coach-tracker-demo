@@ -4,8 +4,8 @@ import time
 from pathlib import Path
 import numpy as np
 from ultralytics import YOLO
-from supervision_helpers import SupervisionZoneTracker
-from person_id_cache import PersonFeatureCache, extract_feature
+from utils.supervision_helpers import SupervisionZoneTracker
+from utils.person_id_cache import PersonFeatureCache, extract_feature
 
 try:
     from dotenv import load_dotenv
@@ -124,7 +124,7 @@ while True:
         print(f"Person ID:{resolved_id} left (was on screen for {duration:.1f}s)")
         ids_who_left.add(resolved_id)
         try:
-            from mixpanel_logger import log_dwell
+            from utils.mixpanel_logger import log_dwell
             log_dwell(int(resolved_id), duration, ZONE_ID, start_t, time.time())
         except ImportError:
             pass

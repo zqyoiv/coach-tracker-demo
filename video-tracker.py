@@ -13,7 +13,7 @@ import cv2
 import torch
 from ultralytics import YOLO
 
-from person_id_cache import PersonFeatureCache, extract_feature
+from utils.person_id_cache import PersonFeatureCache, extract_feature
 
 try:
     from dotenv import load_dotenv
@@ -38,7 +38,7 @@ ZONE_ID = 1
 CACHE_MATCH_THRESH = 0.75
 
 if USE_SUPERVISION:
-    from supervision_helpers import SupervisionZoneTracker
+    from utils.supervision_helpers import SupervisionZoneTracker
 
 model = YOLO("yolo11x.pt")
 
@@ -147,7 +147,7 @@ def main():
     print(f"Time spent processing: {processing_secs:.1f} s")
     print("Time on screen per person:")
     try:
-        from mixpanel_logger import log_dwell
+        from utils.mixpanel_logger import log_dwell
     except ImportError:
         log_dwell = None
     for track_id in sorted(time_on_screen.keys(), key=lambda x: int(x)):

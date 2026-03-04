@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 from datetime import datetime, timezone
 
-_BASE_DIR = Path(__file__).resolve().parent
+# Project root (parent of utils/) for loading .env
+_BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Set to True to print send status (token missing, sent, or error)
 VERBOSE = True

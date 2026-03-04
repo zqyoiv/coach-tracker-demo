@@ -52,7 +52,7 @@ class SupervisionZoneTracker:
         """
         Update zone/time/heatmap for a single YOLO result.
 
-        When track_id_to_resolved is provided (e.g. from person_id_cache), zone time
+        When track_id_to_resolved is provided (e.g. from utils.person_id_cache), zone time
         and "left zone" logs use resolved IDs so the same person keeps one ID.
 
         Returns:
@@ -170,4 +170,3 @@ class SupervisionZoneTracker:
     def get_zone_time(self, person_id: int) -> float:
         """person_id should be resolved_id when using the cache."""
         return float(self.time_in_zone_sec.get(int(person_id), 0.0))
-
