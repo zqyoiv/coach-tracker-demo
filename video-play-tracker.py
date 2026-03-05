@@ -16,6 +16,7 @@ from ultralytics import YOLO
 
 from utils.person_id_cache import PersonFeatureCache, extract_feature
 from utils.utils import load_env, env_bool
+from utils import onsite_video_path
 
 load_env()
 
@@ -25,10 +26,8 @@ USE_ENSEMBLE = False
 USE_PERSON_CACHE = env_bool("USE_PERSON_CACHE", True)
 USE_SUPERVISION = env_bool("USE_SUPERVISION", True)
 USE_CPU = False
-# Paths and numbers
-# VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/angle-videos/30topdown.mp4"
-# VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/test-video/Videos_MERL_Shopping_Dataset/Videos_MERL_Shopping_Dataset/1_1_crop.mp4"
-VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/0304cymy-test-video/cyn.gif"
+# Paths and numbers — change the attribute to switch clip: .REOLINK_EYELEVEL_0, .REOLINK_TD_HIGH_0, .TAPO_FOOTLEVEL_1, ...
+VIDEO_PATH = onsite_video_path.REOLINK_TD_MID_0
 MODEL_SOURCE = "yolo11s.pt"
 TRACK_CLASSES = [0, 1] if ("visdrone" in (str(MODEL_SOURCE[0]) if isinstance(MODEL_SOURCE, (tuple, list)) else str(MODEL_SOURCE)).lower()) else [0]
 IMG_SIZE = 640
