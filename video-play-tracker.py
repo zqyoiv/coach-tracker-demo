@@ -15,26 +15,20 @@ import torch
 from ultralytics import YOLO
 
 from utils.person_id_cache import PersonFeatureCache, extract_feature
+from utils.utils import load_env, env_bool
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parent / ".env")
-except ImportError:
-    pass
-
-def _env_bool(key: str, default: bool = True) -> bool:
-    v = os.environ.get(key, str(default)).strip().lower()
-    return v in ("1", "true", "yes")
+load_env()
 
 # --- Flags / config (all at top) ---
 # Boolean flags (USE_PERSON_CACHE, USE_SUPERVISION read from .env)
 USE_ENSEMBLE = False
-USE_PERSON_CACHE = _env_bool("USE_PERSON_CACHE", True)
-USE_SUPERVISION = _env_bool("USE_SUPERVISION", True)
+USE_PERSON_CACHE = env_bool("USE_PERSON_CACHE", True)
+USE_SUPERVISION = env_bool("USE_SUPERVISION", True)
 USE_CPU = False
 # Paths and numbers
 # VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/angle-videos/30topdown.mp4"
-VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/test-video/Videos_MERL_Shopping_Dataset/Videos_MERL_Shopping_Dataset/1_1_crop.mp4"
+# VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/test-video/Videos_MERL_Shopping_Dataset/Videos_MERL_Shopping_Dataset/1_1_crop.mp4"
+VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/0304cymy-test-video/cyn.gif"
 MODEL_SOURCE = "yolo11s.pt"
 TRACK_CLASSES = [0, 1] if ("visdrone" in (str(MODEL_SOURCE[0]) if isinstance(MODEL_SOURCE, (tuple, list)) else str(MODEL_SOURCE)).lower()) else [0]
 IMG_SIZE = 640
@@ -47,9 +41,10 @@ MAX_ASPECT_RATIO = 3.5
 ENSEMBLE_MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
 ENSEMBLE_CONF = 0.15
 ENSEMBLE_IOU_OVERLAP = 0.4
-CACHE_MATCH_THRESH = 0.75
+# Require strong appearance similarity to merge IDs (0.75 was merging everyone into ID 1).
+CACHE_MATCH_THRESH = 0.95
 # TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
-TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "topdown90-tracker-config.yaml")
+TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
 ZONE_ID = 1
 WINDOW_NAME = "Video Play Tracker"
 
