@@ -6,6 +6,7 @@ Scripts POST directly to Mixpanel's API.
 import os
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Optional
 
 # Project root (parent of utils/) for loading .env
 _BASE_DIR = Path(__file__).resolve().parent.parent
@@ -73,10 +74,18 @@ def _is_send_enabled():
     return True
 
 
-def log_dwell(person_id: int, dwell_time_sec: float, zone: int, start_time: float, end_time: float) -> bool:
+def log_dwell(
+    person_id: int,
+    dwell_time_sec: float,
+    zone: int,
+    start_time: float,
+    end_time: float,
+    camera_id: Optional[str] = None,
+) -> bool:
     """
     Send one "Dwell" event to Mixpanel.
     start_time/end_time are Unix timestamps (e.g. from time.time()).
+    camera_id: optional identifier for the camera/source (e.g. "reolink_td_mid").
     Returns True if sent, False if disabled, no token, or request failed.
     """
     if not _is_send_enabled():
@@ -93,18 +102,21 @@ def log_dwell(person_id: int, dwell_time_sec: float, zone: int, start_time: floa
         import json
         import base64
 
+        props = {
+            "token": token.strip(),
+            "distinct_id": f"zone{zone}_person{person_id}",
+            "person_id": int(person_id),
+            "dwell_time_sec": round(dwell_time_sec, 2),
+            "zone": zone,
+            "start_time": datetime.fromtimestamp(start_time, tz=timezone.utc).isoformat(),
+            "end_time": datetime.fromtimestamp(end_time, tz=timezone.utc).isoformat(),
+            "time": int(start_time),
+        }
+        if camera_id is not None:
+            props["camera_id"] = str(camera_id)
         event = {
-            "event": "Dwell",
-            "properties": {
-                "token": token.strip(),
-                "distinct_id": f"zone{zone}_person{person_id}",
-                "person_id": int(person_id),
-                "dwell_time_sec": round(dwell_time_sec, 2),
-                "zone": zone,
-                "start_time": datetime.fromtimestamp(start_time, tz=timezone.utc).isoformat(),
-                "end_time": datetime.fromtimestamp(end_time, tz=timezone.utc).isoformat(),
-                "time": int(start_time),
-            },
+            "event": "dwell",
+            "properties": props,
         }
         data = json.dumps([event])
         payload = base64.b64encode(data.encode()).decode()
@@ -118,7 +130,10 @@ def log_dwell(person_id: int, dwell_time_sec: float, zone: int, start_time: floa
         with urllib.request.urlopen(req, timeout=10) as r:
             resp = r.read().decode()
         if VERBOSE:
-            print(f"Mixpanel: sent Dwell person_id={person_id} zone={zone} dwell={dwell_time_sec:.1f}s")
+            msg = f"Mixpanel: sent dwell person_id={person_id} zone={zone} dwell={dwell_time_sec:.1f}s"
+            if camera_id is not None:
+                msg += f" camera_id={camera_id}"
+            print(msg)
         return True
     except Exception as e:
         if VERBOSE:

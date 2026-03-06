@@ -20,14 +20,16 @@ from utils import onsite_video_path
 
 load_env()
 
+# Paths and numbers — change the attribute to switch clip: .REOLINK_EYELEVEL_0, .REOLINK_TD_HIGH_0, .TAPO_FOOTLEVEL_1, ...
+VIDEO_PATH = onsite_video_path.TAPO_EYELEVEL_0
+TRACKER_CONFIG_NAME = "reolink-td-mid"
 # --- Flags / config (all at top) ---
 # Boolean flags (USE_PERSON_CACHE, USE_SUPERVISION read from .env)
 USE_ENSEMBLE = False
 USE_PERSON_CACHE = env_bool("USE_PERSON_CACHE", True)
 USE_SUPERVISION = env_bool("USE_SUPERVISION", True)
 USE_CPU = False
-# Paths and numbers — change the attribute to switch clip: .REOLINK_EYELEVEL_0, .REOLINK_TD_HIGH_0, .TAPO_FOOTLEVEL_1, ...
-VIDEO_PATH = onsite_video_path.REOLINK_TD_MID_0
+DRAW_MODEL_YELLOW_BOX = True  # Model yellow box: raw detector output (vs green = tracker output)
 MODEL_SOURCE = "yolo11s.pt"
 TRACK_CLASSES = [0, 1] if ("visdrone" in (str(MODEL_SOURCE[0]) if isinstance(MODEL_SOURCE, (tuple, list)) else str(MODEL_SOURCE)).lower()) else [0]
 IMG_SIZE = 640
@@ -42,9 +44,10 @@ ENSEMBLE_CONF = 0.15
 ENSEMBLE_IOU_OVERLAP = 0.4
 # Require strong appearance similarity to merge IDs (0.75 was merging everyone into ID 1).
 CACHE_MATCH_THRESH = 0.95
-# TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
-TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
-ZONE_ID = 1
+# Tracker config: change name only to switch (e.g. "basic-tracker-config", "topdown90-tracker-config", "reolink-td-mid")
+TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / f"{TRACKER_CONFIG_NAME}.yaml")
+# Camera/source identifier sent to Mixpanel with zone dwell events
+CAMERA_ID = "tapo"
 WINDOW_NAME = "Video Play Tracker"
 
 if USE_SUPERVISION:
@@ -154,7 +157,6 @@ def main():
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     delay_ms = max(1, int(1000.0 / fps))
 
-    time_on_screen = {}
     first_seen_sec = {}
     last_seen_sec = {}
     person_cache = PersonFeatureCache(match_thresh=CACHE_MATCH_THRESH) if USE_PERSON_CACHE else None
@@ -168,6 +170,7 @@ def main():
 
     frame_idx = 0
     t_start = time.perf_counter()
+    real_start_unix = time.time()  # for Mixpanel: map video time to Unix timestamp
 
     while True:
         success, frame = cap.read()
@@ -198,6 +201,7 @@ def main():
         # Green box + ID: use tracker IDs when present; else fallback to person-only detections
         # so the same detections that drive the heatmap (class 0) are also drawn (no "heatmap but no box").
         boxes = results[0].boxes.xyxy.cpu().numpy() if results[0].boxes.xyxy is not None else []
+        person_ok = None  # set below when len(boxes) > 0; used for yellow (raw model) draw
         track_ids_raw = (
             results[0].boxes.id.int().cpu().tolist()
             if results[0].boxes.id is not None
@@ -232,7 +236,6 @@ def main():
                     resolved_id = track_id
                 track_id_to_resolved[track_id] = resolved_id
                 current_detections.append((box, track_id, resolved_id))
-                time_on_screen[resolved_id] = time_on_screen.get(resolved_id, 0.0) + frame_duration
                 if resolved_id not in first_seen_sec:
                     first_seen_sec[resolved_id] = t_sec
                 last_seen_sec[resolved_id] = t_sec + frame_duration
@@ -240,12 +243,12 @@ def main():
         if USE_SUPERVISION and sv_helper is None and frame is not None:
             sv_helper = SupervisionZoneTracker(frame.shape)
         if USE_SUPERVISION and sv_helper is not None:
-            frame, people_in_zone, in_zone_flags, zone_display_ids = sv_helper.update(
-                frame, results[0], track_id_to_resolved=track_id_to_resolved
+            frame, people_in_zone_1, people_in_zone_2, in_zone_1_flags, in_zone_2_flags, zone_display_ids = sv_helper.update(
+                frame, results[0], track_id_to_resolved=track_id_to_resolved, video_t_sec=t_sec
             )
             cv2.putText(
                 frame,
-                f"People in zone: {people_in_zone}",
+                f"People in zone 1: {people_in_zone_1}  zone 2: {people_in_zone_2}",
                 (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
@@ -254,13 +257,18 @@ def main():
             )
             if zone_display_ids:
                 y_off = 55
-                for inside, rid in zip(in_zone_flags, zone_display_ids):
-                    if not inside or rid is None:
+                for i, rid in enumerate(zone_display_ids):
+                    if rid is None:
                         continue
-                    t_sec_z = sv_helper.get_zone_time(rid)
+                    in_z1 = in_zone_1_flags[i] if i < len(in_zone_1_flags) else False
+                    in_z2 = in_zone_2_flags[i] if i < len(in_zone_2_flags) else False
+                    if not in_z1 and not in_z2:
+                        continue
+                    t_z1 = sv_helper.get_zone_time(1, rid)
+                    t_z2 = sv_helper.get_zone_time(2, rid)
                     cv2.putText(
                         frame,
-                        f"ID:{int(rid)} time in zone: {t_sec_z:.1f}s",
+                        f"ID:{int(rid)} Z1:{t_z1:.1f}s Z2:{t_z2:.1f}s",
                         (10, y_off),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.5,
@@ -269,16 +277,35 @@ def main():
                     )
                     y_off += 22
 
+        # Green (model): raw model (detector) output — all person detections before tracker/filters
+        if DRAW_MODEL_YELLOW_BOX and len(boxes) > 0 and person_ok is not None:
+            for i in range(len(boxes)):
+                if not person_ok[i]:
+                    continue
+                box = boxes[i]
+                x1, y1, x2, y2 = map(int, box)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(
+                    frame,
+                    "model",
+                    (x1, max(y1 - 8, 20)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    1,
+                )
+        # Green: tracker output (only detections that got an ID / passed filters)
         for box, track_id, resolved_id in current_detections:
-            duration = time_on_screen[resolved_id]
-            zone_duration = (
-                sv_helper.get_zone_time(resolved_id) if (USE_SUPERVISION and sv_helper is not None) else 0.0
-            )
+            duration = last_seen_sec[resolved_id] - first_seen_sec[resolved_id]
+            z1, z2 = 0.0, 0.0
+            if USE_SUPERVISION and sv_helper is not None:
+                z1 = sv_helper.get_zone_time(1, resolved_id)
+                z2 = sv_helper.get_zone_time(2, resolved_id)
             x1, y1, x2, y2 = map(int, box)
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             label = f"ID:{resolved_id} {duration:.1f}s"
             if USE_SUPERVISION and sv_helper is not None:
-                label += f" Z:{zone_duration:.1f}s"
+                label += f" Z1:{z1:.1f}s Z2:{z2:.1f}s"
             cv2.putText(
                 frame,
                 label,
@@ -322,10 +349,11 @@ def main():
                         2,
                     )
 
-        # Frame counter overlay (always below "People in zone" / ID lines to avoid overlap)
+        # Frame counter overlay (below zone / ID lines)
         fc_y = 55
         if USE_SUPERVISION and sv_helper is not None and zone_display_ids:
-            fc_y = 55 + 22 * sum(1 for inside, rid in zip(in_zone_flags, zone_display_ids) if inside and rid is not None)
+            n_lines = sum(1 for i in range(len(zone_display_ids)) if zone_display_ids[i] is not None and (in_zone_1_flags[i] or in_zone_2_flags[i]))
+            fc_y = 55 + 22 * n_lines if n_lines else 55
         cv2.putText(
             frame,
             f"Frame {frame_idx}/{total_frames}",
@@ -359,16 +387,44 @@ def main():
     print(f"Time spent processing: {processing_secs:.1f} s")
     print("Time on screen per person:")
     try:
-        from utils.mixpanel_logger import log_dwell
+        from utils.mixpanel_logger import log_dwell, _is_send_enabled, _get_token
     except ImportError:
         log_dwell = None
-    for track_id in sorted(time_on_screen.keys(), key=lambda x: int(x)):
-        secs = time_on_screen[track_id]
-        print(f"  Person {track_id} on screen for {secs:.1f} s")
-        if log_dwell:
-            start_sec = first_seen_sec.get(track_id, 0.0)
-            end_sec = last_seen_sec.get(track_id, start_sec + secs)
-            log_dwell(int(track_id), secs, ZONE_ID, t_start + start_sec, t_start + end_sec)
+        _is_send_enabled = lambda: False
+        _get_token = lambda: ""
+    # Debug: show Mixpanel config and dwell values
+    send_ok = _is_send_enabled()
+    has_token = bool(_get_token())
+    print(f"Mixpanel: SEND_TO_MIXPANEL={os.environ.get('SEND_TO_MIXPANEL', '(not set)')} -> enabled={send_ok}, has_token={has_token}")
+    mixpanel_sent = 0
+    for track_id in sorted(first_seen_sec.keys(), key=lambda x: int(x)):
+        start_sec = first_seen_sec[track_id]
+        end_sec = last_seen_sec.get(track_id, start_sec)
+        secs = end_sec - start_sec
+        dwell_z1 = sv_helper.get_zone_time(1, track_id) if (USE_SUPERVISION and sv_helper is not None) else 0
+        dwell_z2 = sv_helper.get_zone_time(2, track_id) if (USE_SUPERVISION and sv_helper is not None) else 0
+        print(f"  Person {track_id} on screen for {secs:.1f} s (first→last) | zone1={dwell_z1:.1f}s zone2={dwell_z2:.1f}s")
+        if log_dwell and USE_SUPERVISION and sv_helper is not None:
+            for zone_id in (1, 2):
+                dwell_z = sv_helper.get_zone_time(zone_id, track_id)
+                if dwell_z > 0:
+                    first_z, last_z = sv_helper.get_zone_first_last(zone_id, track_id)
+                    if log_dwell(int(track_id), dwell_z, zone_id, real_start_unix + first_z, real_start_unix + last_z, camera_id=CAMERA_ID):
+                        mixpanel_sent += 1
+    if log_dwell is not None:
+        if mixpanel_sent == 0:
+            reasons = []
+            if not _is_send_enabled():
+                reasons.append("SEND_TO_MIXPANEL is false/off in .env")
+            elif not _get_token():
+                reasons.append("MIXPANEL_TOKEN missing or not loaded from .env")
+            elif not USE_SUPERVISION or sv_helper is None:
+                reasons.append("Supervision was off or no frames processed")
+            else:
+                reasons.append("no person had dwell time in zone 1 or 2 (check zone positions)")
+            print(f"Mixpanel: no events sent — {'; '.join(reasons)}")
+        else:
+            print(f"Mixpanel: sent {mixpanel_sent} dwell event(s)")
     print("--- end report ---")
 
 

@@ -143,12 +143,12 @@ while True:
         track_id_to_resolved = (
             {tid: rid for (_, tid, rid) in current_detections} if person_cache else None
         )
-        frame, people_in_zone, in_zone_flags, zone_display_ids = sv_helper.update(
+        frame, people_in_zone_1, people_in_zone_2, in_zone_1_flags, in_zone_2_flags, zone_display_ids = sv_helper.update(
             frame, results[0], track_id_to_resolved=track_id_to_resolved
         )
         cv2.putText(
             frame,
-            f"People in zone: {people_in_zone}",
+            f"People in zone 1: {people_in_zone_1}  zone 2: {people_in_zone_2}",
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
@@ -157,13 +157,18 @@ while True:
         )
         if zone_display_ids:
             y_off = 55
-            for inside, rid in zip(in_zone_flags, zone_display_ids):
-                if not inside or rid is None:
+            for i, rid in enumerate(zone_display_ids):
+                if rid is None:
                     continue
-                t_sec = sv_helper.get_zone_time(rid)
+                in_z1 = in_zone_1_flags[i] if i < len(in_zone_1_flags) else False
+                in_z2 = in_zone_2_flags[i] if i < len(in_zone_2_flags) else False
+                if not in_z1 and not in_z2:
+                    continue
+                t_z1 = sv_helper.get_zone_time(1, rid)
+                t_z2 = sv_helper.get_zone_time(2, rid)
                 cv2.putText(
                     frame,
-                    f"ID:{int(rid)} time in zone: {t_sec:.1f}s",
+                    f"ID:{int(rid)} Z1:{t_z1:.1f}s Z2:{t_z2:.1f}s",
                     (10, y_off),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
@@ -178,9 +183,9 @@ while True:
             start_times[resolved_id] = time.time()
 
         duration = time.time() - start_times[resolved_id]
-        zone_duration = (
-            sv_helper.get_zone_time(resolved_id) if sv_helper is not None else 0.0
-        )
+        z1 = sv_helper.get_zone_time(1, resolved_id) if sv_helper is not None else 0.0
+        z2 = sv_helper.get_zone_time(2, resolved_id) if sv_helper is not None else 0.0
+        zone_duration = z1 + z2
 
         x1, y1, x2, y2 = map(int, box)
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)

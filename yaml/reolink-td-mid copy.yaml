@@ -1,0 +1,14 @@
+# Show all model person boxes (track_high_thresh low) + strict ID: prefer existing IDs (low match_thresh
+# = easy to match, high new_track_thresh = rarely create new track). Turn on DRAW_MODEL_YELLOW_BOX to see all.
+tracker_type: bytetrack
+track_high_thresh: 0.08
+track_low_thresh: 0.08
+new_track_thresh: 0.65
+track_buffer: 20000
+match_thresh: 0.18
+fuse_score: true
+gmc_method: sparseOptFlow
+proximity_thresh: 0.3
+appearance_thresh: 0.2
+with_reid: false
+model: auto

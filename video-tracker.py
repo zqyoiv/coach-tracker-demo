@@ -79,7 +79,6 @@ def main():
     frame_duration = 1.0 / fps
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    time_on_screen = {}
     first_seen_sec = {}
     last_seen_sec = {}
     person_cache = PersonFeatureCache(match_thresh=CACHE_MATCH_THRESH) if USE_PERSON_CACHE else None
@@ -129,13 +128,12 @@ def main():
                 else:
                     resolved_id = track_id
                 track_id_to_resolved[track_id] = resolved_id
-                time_on_screen[resolved_id] = time_on_screen.get(resolved_id, 0.0) + frame_duration
                 if resolved_id not in first_seen_sec:
                     first_seen_sec[resolved_id] = t_sec
                 last_seen_sec[resolved_id] = t_sec + frame_duration
 
             if USE_SUPERVISION and sv_helper is not None:
-                sv_helper.update(frame, results[0], track_id_to_resolved=track_id_to_resolved)
+                sv_helper.update(frame, results[0], track_id_to_resolved=track_id_to_resolved, video_t_sec=t_sec)
 
     cap.release()
     t_end = time.perf_counter()
@@ -150,17 +148,22 @@ def main():
         from utils.mixpanel_logger import log_dwell
     except ImportError:
         log_dwell = None
-    for track_id in sorted(time_on_screen.keys(), key=lambda x: int(x)):
-        secs = time_on_screen[track_id]
-        zone_sec = sv_helper.get_zone_time(track_id) if (USE_SUPERVISION and sv_helper is not None) else None
-        if zone_sec is not None:
-            print(f"  Person {track_id} on screen for {secs:.1f} s, time in zone: {zone_sec:.1f} s")
+    for track_id in sorted(first_seen_sec.keys(), key=lambda x: int(x)):
+        start_sec = first_seen_sec[track_id]
+        end_sec = last_seen_sec.get(track_id, start_sec)
+        secs = end_sec - start_sec
+        if USE_SUPERVISION and sv_helper is not None:
+            z1 = sv_helper.get_zone_time(1, track_id)
+            z2 = sv_helper.get_zone_time(2, track_id)
+            print(f"  Person {track_id} on screen for {secs:.1f} s (first→last), zone 1: {z1:.1f}s zone 2: {z2:.1f}s")
         else:
-            print(f"  Person {track_id} on screen for {secs:.1f} s")
-        if log_dwell:
-            start_sec = first_seen_sec.get(track_id, 0.0)
-            end_sec = last_seen_sec.get(track_id, start_sec + secs)
-            log_dwell(int(track_id), secs, ZONE_ID, t_start + start_sec, t_start + end_sec)
+            print(f"  Person {track_id} on screen for {secs:.1f} s (first→last)")
+        if log_dwell and USE_SUPERVISION and sv_helper is not None:
+            for zone_id in (1, 2):
+                dwell_z = sv_helper.get_zone_time(zone_id, track_id)
+                if dwell_z > 0:
+                    first_z, last_z = sv_helper.get_zone_first_last(zone_id, track_id)
+                    log_dwell(int(track_id), dwell_z, zone_id, t_start + first_z, t_start + last_z)
     print("--- end report ---")
 
 if __name__ == "__main__":
