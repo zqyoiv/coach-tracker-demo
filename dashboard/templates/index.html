@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>demo dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo">📊</div>
+          <div>
+            <div class="title">demo dashboard</div>
+            <div class="subtitle">CSV-driven dwell analytics</div>
+          </div>
+        </div>
+
+        <form class="load-form" method="get" action="/">
+          <label class="label" for="files">CSV(s)</label>
+          <select class="select" id="files" name="files" multiple size="6">
+            {% for f in csv_files %}
+              <option value="{{ f }}" {% if f in selected_files %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn">Load</button>
+        </form>
+
+        <form class="load-form" method="post" action="/upload" enctype="multipart/form-data">
+          <label class="label" for="csv_upload">Upload CSV(s)</label>
+          <input class="select" style="padding:8px 10px;" type="file" id="csv_upload" name="csv_upload" multiple accept=".csv" />
+          <button class="btn" type="submit">Add</button>
+        </form>
+      </header>
+
+      <main class="grid">
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">Dwell Time Breakdown</div>
+            <div class="stat-pill">Total, last 7 days: <span class="stat-num">{{ data.total_events }}</span></div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="dwellAll"></canvas>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">Dwell Time Breakdown by Zone</div>
+            <div class="stat-pill">Total, last 7 days: <span class="stat-num">{{ data.total_events }}</span></div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="dwellByZone"></canvas>
+          </div>
+        </section>
+
+        <section class="card wide">
+          <div class="card-head">
+            <div class="card-title">Daily Distribution</div>
+            <div class="stat-pill">Line: Total events per day</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="dailyDist"></canvas>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">Distribution by Camera ID</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="cameraDist"></canvas>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      window.dashboardData = {
+        dwell_bins: {{ data.dwell_bins | tojson }},
+        dwell_all_counts: {{ data.dwell_all_counts | tojson }},
+        dwell_by_zone: {{ data.dwell_by_zone | tojson }},
+        daily_labels: {{ data.daily_labels | tojson }},
+        daily_counts: {{ data.daily_counts | tojson }},
+        camera_labels: {{ data.camera_labels | tojson }},
+        camera_counts: {{ data.camera_counts | tojson }},
+        total_events: {{ data.total_events | tojson }},
+      };
+    </script>
+    <script src="{{ url_for('static', filename='charts.js') }}"></script>
+  </body>
+</html>
+

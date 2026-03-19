@@ -13,8 +13,9 @@ import csv
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import Optional
 
 # Add project root to path when running from coach-1/ subfolder
 _project_root = Path(__file__).resolve().parent.parent
@@ -36,11 +37,7 @@ load_env()
 _COACH1_DIR = Path(__file__).resolve().parent
 TRACKER_CFG = str(_COACH1_DIR / "coach-1.yaml")
 COACH1_CSV = _COACH1_DIR / "coach-1.csv"
-CSV_HEADER = [
-    "timestamp", "video_path", "event_type", "person_id", "zone_id",
-    "dwell_sec", "time_on_screen_sec", "start_sec", "end_sec",
-    "total_frames", "fps", "processing_sec", "camera_id",
-]
+CSV_HEADER = ["timestamp", "person_id", "dwell_sec", "zone_id", "camera_id"]
 VIDEO_PATH = onsite_video_path.TAPO_EYELEVEL_0
 # --- Flags / config (all at top) ---
 USE_ENSEMBLE = False
@@ -68,20 +65,42 @@ WINDOW_NAME = "Coach-1 Play Tracker"
 # Purple/pink zone: normalized (0.24, 0) top-left to (0.68, 0.61) bottom-right
 # Covers handbag shelving area (center-left of frame)
 ZONE_NORM = (0.24, 0.00, 0.68, 0.61)  # x1, y1, x2, y2
+ZONE_LABEL = "Teri Area + Signage"
 
 if USE_SUPERVISION:
     from utils.supervision_helpers import SupervisionZoneTracker
     import supervision as sv
 
 
-def _log_to_csv(row: dict):
-    """Append a log row to coach-1.csv. Creates file with header if new."""
-    write_header = not COACH1_CSV.exists()
-    with open(COACH1_CSV, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=CSV_HEADER, extrasaction="ignore")
-        if write_header:
-            w.writeheader()
-        w.writerow({k: row.get(k, "") for k in CSV_HEADER})
+def _timestamp_from_video_path(video_path: str) -> str:
+    """Parse date from video filename (e.g. coach-1-1-20260313123359-... -> 3/13/2026)."""
+    import re
+    name = Path(video_path).stem
+    # Match YYYYMMDD in filename
+    m = re.search(r"(\d{4})(\d{2})(\d{2})", name)
+    if m:
+        y, mo, d = m.group(1), int(m.group(2)), int(m.group(3))
+        return f"{mo}/{d}/{y}"
+    return "3/13/2026"  # fallback for this camera
+
+
+def _video_start_datetime(video_path: str) -> Optional[datetime]:
+    """
+    Parse the start datetime from video filename.
+    Example filename: coach-1-1-20260313123359-20260313123859-5.mp4
+    Returns naive datetime representing the camera time.
+    """
+    import re
+
+    name = Path(video_path).stem
+    parts = re.findall(r"\d{14}", name)
+    if not parts:
+        return None
+    start_str = parts[0]
+    try:
+        return datetime.strptime(start_str, "%Y%m%d%H%M%S")
+    except ValueError:
+        return None
 
 
 def _coach1_zone_polygons(frame_shape):
@@ -219,16 +238,17 @@ def main():
     except ImportError:
         log_dwell = None
 
+    # CSV: overwrite each run; timestamp from video filename (e.g. 3/13/2026)
+    csv_rows = []
+    video_date = _timestamp_from_video_path(video_path)
+    video_start_dt = _video_start_datetime(video_path)
+
+    def _append_csv(row: dict):
+        out = {k: row.get(k, "") for k in CSV_HEADER}
+        csv_rows.append(out)
+
     viewer_msg = "Press 'q' to quit." if show_viewer else "(headless)"
     print(f"Playing with tracking: {video_path} ({total_frames} frames @ {fps:.1f} fps). {viewer_msg}")
-    _log_to_csv({
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "video_path": video_path,
-        "event_type": "run_start",
-        "total_frames": total_frames,
-        "fps": fps,
-        "camera_id": CAMERA_ID,
-    })
     if show_viewer:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(WINDOW_NAME, 1280, 720)
@@ -312,6 +332,7 @@ def main():
                 zone_1_polygon=z1_poly,
                 zone_2_polygon=z2_poly,
                 zone_1_color=purple_color,
+                enable_heatmap=False,
             )
         if USE_SUPERVISION and sv_helper is not None:
             frame, people_in_zone_1, people_in_zone_2, in_zone_1_flags, in_zone_2_flags, zone_display_ids, dwell_events_ready = sv_helper.update(
@@ -325,19 +346,6 @@ def main():
                         camera_id=CAMERA_ID,
                     ):
                         mixpanel_sent += 1
-            if dwell_events_ready:
-                for zone_id, person_id, dwell_sec, first_sec, last_sec in dwell_events_ready:
-                    _log_to_csv({
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "video_path": video_path,
-                        "event_type": "dwell",
-                        "person_id": int(person_id),
-                        "zone_id": zone_id,
-                        "dwell_sec": round(dwell_sec, 2),
-                        "start_sec": round(first_sec, 2),
-                        "end_sec": round(last_sec, 2),
-                        "camera_id": CAMERA_ID,
-                    })
             cv2.putText(
                 frame,
                 f"People in zone: {people_in_zone_1}",
@@ -485,43 +493,44 @@ def main():
     send_ok = _is_send_enabled()
     has_token = bool(_get_token())
     print(f"Mixpanel: SEND_TO_MIXPANEL={os.environ.get('SEND_TO_MIXPANEL', '(not set)')} -> enabled={send_ok}, has_token={has_token}")
+    # Only record persons who actually appeared in the zone (dwell in zone > 0). Ignore everyone else.
+    if USE_SUPERVISION and sv_helper is not None:
+        ids_in_zone = {
+            tid for tid in first_seen_sec
+            if sv_helper.get_zone_time(1, tid) > 0
+        }
+    else:
+        ids_in_zone = set()
     for track_id in sorted(first_seen_sec.keys(), key=lambda x: int(x)):
         start_sec = first_seen_sec[track_id]
         end_sec = last_seen_sec.get(track_id, start_sec)
         secs = end_sec - start_sec
         dwell_z1 = sv_helper.get_zone_time(1, track_id) if (USE_SUPERVISION and sv_helper is not None) else 0
         print(f"  Person {track_id} on screen for {secs:.1f} s (first→last) | zone={dwell_z1:.1f}s")
-        _log_to_csv({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "video_path": video_path,
-            "event_type": "person_summary",
+        if track_id not in ids_in_zone:
+            continue
+
+        # More specific timestamp: first moment the person is in the purple zone.
+        if USE_SUPERVISION and sv_helper is not None and video_start_dt is not None:
+            first_zone_sec, _last_zone_sec = sv_helper.get_zone_first_last(1, track_id)
+            person_dt = video_start_dt + timedelta(seconds=float(first_zone_sec))
+            person_ts = f"{person_dt.month}/{person_dt.day}/{person_dt.year} {person_dt.strftime('%H:%M')}"
+        else:
+            person_ts = video_date
+        _append_csv({
+            "timestamp": person_ts,
             "person_id": int(track_id),
-            "zone_id": 1,
             "dwell_sec": round(dwell_z1, 2),
-            "time_on_screen_sec": round(secs, 2),
-            "start_sec": round(start_sec, 2),
-            "end_sec": round(end_sec, 2),
-            "total_frames": total_frames,
-            "fps": fps,
-            "processing_sec": round(processing_secs, 2),
+            "zone_id": ZONE_LABEL,
             "camera_id": CAMERA_ID,
         })
     if USE_SUPERVISION and sv_helper is not None:
         flush_events = sv_helper.get_dwell_events_to_flush()
         for zone_id, person_id, dwell_sec, first_sec, last_sec in flush_events:
-            if log_dwell and log_dwell(int(person_id), dwell_sec, zone_id, real_start_unix + first_sec, real_start_unix + last_sec, camera_id=CAMERA_ID):
-                mixpanel_sent += 1
-            _log_to_csv({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "video_path": video_path,
-                "event_type": "dwell",
-                "person_id": int(person_id),
-                "zone_id": zone_id,
-                "dwell_sec": round(dwell_sec, 2),
-                "start_sec": round(first_sec, 2),
-                "end_sec": round(last_sec, 2),
-                "camera_id": CAMERA_ID,
-            })
+            if zone_id != 1 or dwell_sec <= 0:
+                continue
+            if log_dwell:
+                log_dwell(int(person_id), dwell_sec, zone_id, real_start_unix + first_sec, real_start_unix + last_sec, camera_id=CAMERA_ID)
     if log_dwell is not None:
         if mixpanel_sent == 0:
             reasons = []
@@ -536,15 +545,10 @@ def main():
             print(f"Mixpanel: no events sent — {'; '.join(reasons)}")
         else:
             print(f"Mixpanel: sent {mixpanel_sent} dwell event(s)")
-    _log_to_csv({
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "video_path": video_path,
-        "event_type": "run_complete",
-        "total_frames": total_frames,
-        "fps": fps,
-        "processing_sec": round(processing_secs, 2),
-        "camera_id": CAMERA_ID,
-    })
+    with open(COACH1_CSV, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=CSV_HEADER, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(csv_rows)
     print("--- end report ---")
 
 

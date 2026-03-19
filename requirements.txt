@@ -4,3 +4,4 @@ pyrealsense2
 python-dotenv
 supervision
 huggingface_hub
+Flask

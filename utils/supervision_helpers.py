@@ -28,6 +28,7 @@ class SupervisionZoneTracker:
         zone_2_polygon: Optional[np.ndarray] = None,
         zone_1_color: Optional[sv.Color] = None,
         zone_2_color: Optional[sv.Color] = None,
+        enable_heatmap: bool = True,
     ):
         h, w = frame_shape[:2]
         # Zone 1: left half of center area; Zone 2: right half (defaults)
@@ -65,6 +66,7 @@ class SupervisionZoneTracker:
         self.zone_2_annotator = sv.PolygonZoneAnnotator(
             zone=self.zone_2, color=color_2, thickness=2
         )
+        self._enable_heatmap = enable_heatmap
         self.heatmap_annotator = sv.HeatMapAnnotator(
             position=sv.Position.CENTER, opacity=0.4, radius=15, kernel_size=25
         )
@@ -195,39 +197,40 @@ class SupervisionZoneTracker:
         frame = self.zone_1_annotator.annotate(scene=frame)
         frame = self.zone_2_annotator.annotate(scene=frame)
 
-        # Heatmap
-        detections_for_heatmap = detections
-        if len(detections) > 0:
-            if detections.class_id is not None:
-                person_mask = np.asarray(detections.class_id == 0)
-            else:
-                person_mask = np.ones(len(detections), dtype=bool)
-            move_mask = np.ones(len(detections), dtype=bool)
-            if detections.tracker_id is not None and len(detections.tracker_id) == len(detections):
-                boxes = detections.xyxy
-                for i in range(len(detections)):
-                    x1, y1, x2, y2 = boxes[i]
-                    cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
-                    tid = int(detections.tracker_id[i])
-                    prev = self._prev_centroid_by_id.get(tid)
-                    self._prev_centroid_by_id[tid] = (float(cx), float(cy))
-                    if prev is not None:
-                        dx, dy = cx - prev[0], cy - prev[1]
-                        if dx * dx + dy * dy < self._heatmap_min_move_px * self._heatmap_min_move_px:
-                            move_mask[i] = False
-            combined = person_mask & move_mask
-            if np.any(combined):
-                detections_for_heatmap = detections[combined]
-            else:
-                detections_for_heatmap = detections[[]]
-        try:
-            has_boxes = len(detections_for_heatmap) > 0 and np.isfinite(detections_for_heatmap.xyxy).all()
-        except Exception:
-            has_boxes = False
-        if has_boxes:
-            with np.errstate(invalid="ignore", divide="ignore"):
-                out = self.heatmap_annotator.annotate(scene=frame, detections=detections_for_heatmap)
-            frame = out[0] if isinstance(out, tuple) else out
+        if self._enable_heatmap:
+            # Heatmap
+            detections_for_heatmap = detections
+            if len(detections) > 0:
+                if detections.class_id is not None:
+                    person_mask = np.asarray(detections.class_id == 0)
+                else:
+                    person_mask = np.ones(len(detections), dtype=bool)
+                move_mask = np.ones(len(detections), dtype=bool)
+                if detections.tracker_id is not None and len(detections.tracker_id) == len(detections):
+                    boxes = detections.xyxy
+                    for i in range(len(detections)):
+                        x1, y1, x2, y2 = boxes[i]
+                        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+                        tid = int(detections.tracker_id[i])
+                        prev = self._prev_centroid_by_id.get(tid)
+                        self._prev_centroid_by_id[tid] = (float(cx), float(cy))
+                        if prev is not None:
+                            dx, dy = cx - prev[0], cy - prev[1]
+                            if dx * dx + dy * dy < self._heatmap_min_move_px * self._heatmap_min_move_px:
+                                move_mask[i] = False
+                combined = person_mask & move_mask
+                if np.any(combined):
+                    detections_for_heatmap = detections[combined]
+                else:
+                    detections_for_heatmap = detections[[]]
+            try:
+                has_boxes = len(detections_for_heatmap) > 0 and np.isfinite(detections_for_heatmap.xyxy).all()
+            except Exception:
+                has_boxes = False
+            if has_boxes:
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    out = self.heatmap_annotator.annotate(scene=frame, detections=detections_for_heatmap)
+                frame = out[0] if isinstance(out, tuple) else out
 
         people_in_zone_1 = sum(1 for v in in_zone_1 if v)
         people_in_zone_2 = sum(1 for v in in_zone_2 if v)

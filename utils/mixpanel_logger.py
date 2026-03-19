@@ -47,30 +47,7 @@ def _get_token():
 
 
 def _is_send_enabled():
-    """True only if SEND_TO_MIXPANEL is explicitly true/1/yes/on (default False = Mixpanel off)."""
-    try:
-        from dotenv import load_dotenv
-        load_dotenv(_BASE_DIR / ".env")
-        load_dotenv()
-    except ImportError:
-        pass
-    v = (os.environ.get("SEND_TO_MIXPANEL") or os.environ.get("send_to_mixpanel") or "").strip().lower()
-    if v in ("true", "1", "yes", "on"):
-        return True
-    for env_path in [_BASE_DIR / ".env", Path.cwd() / ".env"]:
-        if not env_path.exists():
-            continue
-        try:
-            with open(env_path, "r", encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    line = line.strip()
-                    if line.upper().startswith("SEND_TO_MIXPANEL="):
-                        val = line.split("=", 1)[1].strip().strip('"\'').lower()
-                        if val in ("true", "1", "yes", "on"):
-                            return True
-                        break
-        except Exception:
-            pass
+    """Mixpanel is disabled for this project: never send (no API calls, no cost)."""
     return False
 
 
