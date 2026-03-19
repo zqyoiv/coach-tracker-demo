@@ -97,6 +97,44 @@ function makeStackedHorizontalBars(canvasId, labels, byZone, zoneColors) {
   });
 }
 
+function makeGroupedHorizontalBars(canvasId, labels, byZone, zoneColors) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const zones = Object.keys(byZone || {});
+  const datasets = zones.map((z, i) => ({
+    label: z,
+    data: byZone[z],
+    backgroundColor: zoneColors[i % zoneColors.length],
+    borderColor: zoneColors[i % zoneColors.length],
+    borderWidth: 1,
+  }));
+
+  return new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      ...baseChartOptions(),
+      indexAxis: "y",
+      plugins: {
+        ...baseChartOptions().plugins,
+        legend: { display: true, labels: { color: "rgba(229,231,235,.95)" } },
+      },
+      scales: {
+        ...baseChartOptions().scales,
+        x: {
+          ...baseChartOptions().scales.x,
+          stacked: false,
+          beginAtZero: true,
+        },
+        y: {
+          ...baseChartOptions().scales.y,
+          stacked: false,
+        },
+      },
+    },
+  });
+}
+
 function makeLineChart(canvasId, labels, counts) {
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
@@ -187,7 +225,7 @@ const cameraLabels = d.camera_labels || [];
 const cameraCounts = d.camera_counts || [];
 
 makeHorizontalBarChart("dwellAll", dwellBins, dwellAll, "#8B5CF6");
-makeStackedHorizontalBars("dwellByZone", dwellBins, dwellByZone, ["#8B5CF6", "#22C55E", "#60A5FA", "#F59E0B", "#EF4444", "#14B8A6"]);
+makeGroupedHorizontalBars("dwellByZone", dwellBins, dwellByZone, ["#8B5CF6", "#22C55E", "#60A5FA", "#F59E0B", "#EF4444", "#14B8A6"]);
 makeLineChart("dailyDist", dailyLabels, dailyCounts);
 makeCameraBarChart("cameraDist", cameraLabels, cameraCounts, "#8B5CF6");
 
