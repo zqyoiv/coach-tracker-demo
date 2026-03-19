@@ -1,6 +1,6 @@
 """
-Coach-1 person tracking: purple/pink zone over handbag shelving area.
-Usage: python coach-1-play-tracker.py [video_path] [--no-viewer]
+Coach-2 person tracking: per-camera purple/pink zone.
+Usage: python coach-2-play-tracker.py [video_path] [--no-viewer]
 
   --no-viewer   Run headless (no display window, faster for batch processing)
 
@@ -35,8 +35,8 @@ load_env()
 
 # Paths and numbers — tracker config and CSV log in same folder as this script
 _COACH1_DIR = Path(__file__).resolve().parent
-TRACKER_CFG = str(_COACH1_DIR / "coach-1.yaml")
-COACH1_CSV = _COACH1_DIR / "coach-1.csv"
+TRACKER_CFG = str(_COACH1_DIR / "coach-2.yaml")
+COACH1_CSV = _COACH1_DIR / "coach-2.csv"  # kept var name to minimize diff
 CSV_HEADER = ["timestamp", "person_id", "dwell_sec", "zone_id", "camera_id"]
 VIDEO_PATH = onsite_video_path.TAPO_EYELEVEL_0
 # --- Flags / config (all at top) ---
@@ -58,14 +58,14 @@ ENSEMBLE_MODEL_SOURCE = ("erbayat/yolov11s-visdrone", "yolo11s-visdrone.pt")
 ENSEMBLE_CONF = 0.15
 ENSEMBLE_IOU_OVERLAP = 0.4
 CACHE_MATCH_THRESH = 0.95
-CAMERA_ID = "coach-1"
+CAMERA_ID = "coach-2"
 DWELL_LEAVE_BUFFER_SEC = env_float("DWELL_LEAVE_BUFFER_SEC", 5.0)
-WINDOW_NAME = "Coach-1 Play Tracker"
+WINDOW_NAME = "Coach-2 Play Tracker"
 
-# Purple/pink zone: normalized (0.24, 0) top-left to (0.68, 0.61) bottom-right
-# Covers handbag shelving area (center-left of frame)
-ZONE_NORM = (0.24, 0.00, 0.68, 0.61)  # x1, y1, x2, y2
-ZONE_LABEL = "Teri Area + Signage"
+# Purple/pink zone: normalized rectangle (x1, y1) top-left to (x2, y2) bottom-right
+# Tuned to match the purple rectangle area shown in the screenshot for coach-2.
+ZONE_NORM = (0.2345, 0.1537, 0.7854, 0.7899)  # x1, y1, x2, y2
+ZONE_LABEL = "Brooklyn + Signage"
 
 if USE_SUPERVISION:
     from utils.supervision_helpers import SupervisionZoneTracker
@@ -179,7 +179,7 @@ ensemble_model = _load_model(ENSEMBLE_MODEL_SOURCE) if USE_ENSEMBLE else None
 if USE_ENSEMBLE:
     print(f"Ensemble enabled: second model {ENSEMBLE_MODEL_SOURCE} (yellow boxes when main misses)")
 if USE_SUPERVISION:
-    print("Supervision enabled: Coach-1 purple zone (handbag shelving area), heatmap.")
+    print("Supervision enabled: Coach-2 purple zone, heatmap.")
 
 
 def _get_device():
@@ -205,7 +205,7 @@ DEVICE, HALF = _get_device()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Coach-1 person tracking with purple zone")
+    parser = argparse.ArgumentParser(description="Coach-2 person tracking with purple zone")
     parser.add_argument("video_path", nargs="?", default=VIDEO_PATH, help="Path to video file")
     parser.add_argument("--no-viewer", action="store_true", help="Run headless (no display window)")
     args = parser.parse_args()
@@ -243,14 +243,20 @@ def main():
     video_date = _timestamp_from_video_path(video_path)
     video_start_dt = _video_start_datetime(video_path)
     mmdd = video_start_dt.strftime("%m%d") if video_start_dt is not None else datetime.now().strftime("%m%d")
-    coach1_csv_path = _COACH1_DIR / f"{mmdd}-coach-1.csv"
+    coach1_csv_path = _COACH1_DIR / f"{mmdd}-coach-2.csv"
 
     def _append_csv(row: dict):
         out = {k: row.get(k, "") for k in CSV_HEADER}
         csv_rows.append(out)
 
+    # Create/overwrite CSV immediately so the file exists even if we exit/crash early.
+    with open(coach1_csv_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=CSV_HEADER, extrasaction="ignore")
+        w.writeheader()
+
     viewer_msg = "Press 'q' to quit." if show_viewer else "(headless)"
     print(f"Playing with tracking: {video_path} ({total_frames} frames @ {fps:.1f} fps). {viewer_msg}")
+    print(f"Inference device: {DEVICE} | FP16(half): {HALF} | IMG_SIZE: {IMG_SIZE}")
     if show_viewer:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(WINDOW_NAME, 1280, 720)

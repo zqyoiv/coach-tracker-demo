@@ -189,9 +189,9 @@ def _compute_dashboard(events: list[dict[str, Any]]) -> DashboardData:
 
 
 def _list_available_csvs() -> list[str]:
-    # Find coach-*/coach-*.csv
+    # Find all CSVs under coach-*/ (e.g. coach-1/0313-coach-1.csv)
     out: list[str] = []
-    for p in PROJECT_ROOT.glob("coach-*/coach-*.csv"):
+    for p in PROJECT_ROOT.glob("coach-*/**/*.csv"):
         out.append(str(p.relative_to(PROJECT_ROOT)))
     return sorted(out)
 

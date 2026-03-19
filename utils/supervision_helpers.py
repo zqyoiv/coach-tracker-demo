@@ -29,6 +29,7 @@ class SupervisionZoneTracker:
         zone_1_color: Optional[sv.Color] = None,
         zone_2_color: Optional[sv.Color] = None,
         enable_heatmap: bool = True,
+        debug_prints: bool = False,
     ):
         h, w = frame_shape[:2]
         # Zone 1: left half of center area; Zone 2: right half (defaults)
@@ -67,6 +68,7 @@ class SupervisionZoneTracker:
             zone=self.zone_2, color=color_2, thickness=2
         )
         self._enable_heatmap = enable_heatmap
+        self._debug_prints = debug_prints
         self.heatmap_annotator = sv.HeatMapAnnotator(
             position=sv.Position.CENTER, opacity=0.4, radius=15, kernel_size=25
         )
@@ -172,7 +174,11 @@ class SupervisionZoneTracker:
                         dwell = self.get_zone_time(zone_id, rid)
                         first, last = self.get_zone_first_last(zone_id, rid)
                         self._pending_dwell.append((zone_id, rid, first, last, t_sec))
-                        print(f"ID:{rid} left zone {zone_id}, dwell (first→last): {dwell:.1f}s (buffer {self._dwell_leave_buffer_sec}s)")
+                        if self._debug_prints:
+                            print(
+                                f"ID:{rid} left zone {zone_id}, dwell (first→last): {dwell:.1f}s "
+                                f"(buffer {self._dwell_leave_buffer_sec}s)"
+                            )
                     self._prev_in_zone_by_id[zone_id][rid] = inside
 
             for rid, was_inside in list(self._prev_in_zone_by_id[zone_id].items()):
@@ -180,7 +186,11 @@ class SupervisionZoneTracker:
                     dwell = self.get_zone_time(zone_id, rid)
                     first, last = self.get_zone_first_last(zone_id, rid)
                     self._pending_dwell.append((zone_id, rid, first, last, t_sec))
-                    print(f"ID:{rid} left zone {zone_id} (off screen), dwell (first→last): {dwell:.1f}s (buffer {self._dwell_leave_buffer_sec}s)")
+                    if self._debug_prints:
+                        print(
+                            f"ID:{rid} left zone {zone_id} (off screen), dwell (first→last): {dwell:.1f}s "
+                            f"(buffer {self._dwell_leave_buffer_sec}s)"
+                        )
                     self._prev_in_zone_by_id[zone_id][rid] = False
 
         # Check pending: buffer exceeded = permanently left, ready to send
@@ -189,7 +199,10 @@ class SupervisionZoneTracker:
             if t_sec - left_at >= self._dwell_leave_buffer_sec:
                 dwell_p = max(0.0, last_p - first_p)
                 dwell_events_ready.append((zone_id_p, rid_p, dwell_p, first_p, last_p))
-                print(f"ID:{rid_p} permanently left zone {zone_id_p} (buffer exceeded), sending dwell {dwell_p:.1f}s")
+                if self._debug_prints:
+                    print(
+                        f"ID:{rid_p} permanently left zone {zone_id_p} (buffer exceeded), sending dwell {dwell_p:.1f}s"
+                    )
             else:
                 still_pending.append((zone_id_p, rid_p, first_p, last_p, left_at))
         self._pending_dwell = still_pending
