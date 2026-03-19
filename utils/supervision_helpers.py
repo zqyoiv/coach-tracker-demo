@@ -6,6 +6,10 @@ import numpy as np
 import supervision as sv
 
 
+# Type for dwell event ready to send: (zone_id, person_id, dwell_sec, first_sec, last_sec)
+DwellEventReady = Tuple[int, int, float, float, float]
+
+
 class SupervisionZoneTracker:
     """
     Helper for:
@@ -13,36 +17,53 @@ class SupervisionZoneTracker:
     - computing who is in each zone (box overlaps polygon)
     - per-ID per-zone dwell = last time seen in zone minus first time (no accumulation)
     - drawing both zones + heatmap on the frame
+    - buffer-based dwell events: send when person has been gone > buffer_sec without returning
     """
 
-    def __init__(self, frame_shape: Tuple[int, int, int]):
+    def __init__(
+        self,
+        frame_shape: Tuple[int, int, int],
+        dwell_leave_buffer_sec: float = 5.0,
+        zone_1_polygon: Optional[np.ndarray] = None,
+        zone_2_polygon: Optional[np.ndarray] = None,
+        zone_1_color: Optional[sv.Color] = None,
+        zone_2_color: Optional[sv.Color] = None,
+    ):
         h, w = frame_shape[:2]
-        # Zone 1: left half of center area; Zone 2: right half
-        polygon_1 = np.array(
-            [
-                [w // 4, h // 4],
-                [w // 2, h // 4],
-                [w // 2, 3 * h // 4],
-                [w // 4, 3 * h // 4],
-            ],
-            dtype=np.int32,
-        )
-        polygon_2 = np.array(
-            [
-                [w // 2, h // 4],
-                [3 * w // 4, h // 4],
-                [3 * w // 4, 3 * h // 4],
-                [w // 2, 3 * h // 4],
-            ],
-            dtype=np.int32,
-        )
+        # Zone 1: left half of center area; Zone 2: right half (defaults)
+        if zone_1_polygon is not None:
+            polygon_1 = np.asarray(zone_1_polygon, dtype=np.int32)
+        else:
+            polygon_1 = np.array(
+                [
+                    [w // 4, h // 4],
+                    [w // 2, h // 4],
+                    [w // 2, 3 * h // 4],
+                    [w // 4, 3 * h // 4],
+                ],
+                dtype=np.int32,
+            )
+        if zone_2_polygon is not None:
+            polygon_2 = np.asarray(zone_2_polygon, dtype=np.int32)
+        else:
+            polygon_2 = np.array(
+                [
+                    [w // 2, h // 4],
+                    [3 * w // 4, h // 4],
+                    [3 * w // 4, 3 * h // 4],
+                    [w // 2, 3 * h // 4],
+                ],
+                dtype=np.int32,
+            )
         self.zone_1 = sv.PolygonZone(polygon=polygon_1)
         self.zone_2 = sv.PolygonZone(polygon=polygon_2)
+        color_1 = zone_1_color if zone_1_color is not None else sv.Color.GREEN
+        color_2 = zone_2_color if zone_2_color is not None else sv.Color.BLUE
         self.zone_1_annotator = sv.PolygonZoneAnnotator(
-            zone=self.zone_1, color=sv.Color.GREEN, thickness=2
+            zone=self.zone_1, color=color_1, thickness=2
         )
         self.zone_2_annotator = sv.PolygonZoneAnnotator(
-            zone=self.zone_2, color=sv.Color.BLUE, thickness=2
+            zone=self.zone_2, color=color_2, thickness=2
         )
         self.heatmap_annotator = sv.HeatMapAnnotator(
             position=sv.Position.CENTER, opacity=0.4, radius=15, kernel_size=25
@@ -56,6 +77,9 @@ class SupervisionZoneTracker:
         self._heatmap_min_move_px = 2.0
         self._prev_centroid_by_id: Dict[int, Tuple[float, float]] = {}
         self.last_frame_time = time.time()
+        self._dwell_leave_buffer_sec = dwell_leave_buffer_sec
+        # Pending: (zone_id, rid, first, last, left_at) — waiting for buffer before sending
+        self._pending_dwell: List[Tuple[int, int, float, float, float]] = []
 
     def update(
         self,
@@ -70,11 +94,13 @@ class SupervisionZoneTracker:
         List[bool],
         List[bool],
         List[Optional[int]],
+        List[DwellEventReady],
     ]:
         """
         Update zone/time/heatmap for a single YOLO result.
         Returns:
-            frame, people_in_zone_1, people_in_zone_2, in_zone_1_flags, in_zone_2_flags, ids_for_display
+            frame, people_in_zone_1, people_in_zone_2, in_zone_1_flags, in_zone_2_flags, ids_for_display,
+            dwell_events_ready: [(zone_id, person_id, dwell_sec, first_sec, last_sec), ...] when buffer exceeded
         """
         detections = sv.Detections.from_ultralytics(result)
         track_id_to_resolved = track_id_to_resolved or {}
@@ -115,13 +141,21 @@ class SupervisionZoneTracker:
         self._cumulative_sec += delta
         t_sec = video_t_sec if video_t_sec is not None else self._cumulative_sec
 
+        dwell_events_ready: List[DwellEventReady] = []
+
         for zone_id in (1, 2):
             in_zone = in_zone_1 if zone_id == 1 else in_zone_2
             if detections.tracker_id is not None and len(detections.tracker_id) == len(in_zone):
                 for i, tid in enumerate(detections.tracker_id):
                     if in_zone[i]:
                         rid = track_id_to_resolved.get(int(tid), int(tid))
-                        if rid not in self._first_seen_in_zone_sec[zone_id]:
+                        # If returning after leaving (was in pending), remove from pending and start new visit
+                        was_pending = any(p[0] == zone_id and p[1] == rid for p in self._pending_dwell)
+                        self._pending_dwell = [
+                            p for p in self._pending_dwell
+                            if not (p[0] == zone_id and p[1] == rid)
+                        ]
+                        if was_pending or rid not in self._first_seen_in_zone_sec[zone_id]:
                             self._first_seen_in_zone_sec[zone_id][rid] = t_sec
                         self._last_seen_in_zone_sec[zone_id][rid] = t_sec
 
@@ -134,14 +168,29 @@ class SupervisionZoneTracker:
                     was_inside = self._prev_in_zone_by_id[zone_id].get(rid, False)
                     if was_inside and not inside:
                         dwell = self.get_zone_time(zone_id, rid)
-                        print(f"ID:{rid} left zone {zone_id}, dwell (first→last): {dwell:.1f}s")
+                        first, last = self.get_zone_first_last(zone_id, rid)
+                        self._pending_dwell.append((zone_id, rid, first, last, t_sec))
+                        print(f"ID:{rid} left zone {zone_id}, dwell (first→last): {dwell:.1f}s (buffer {self._dwell_leave_buffer_sec}s)")
                     self._prev_in_zone_by_id[zone_id][rid] = inside
 
             for rid, was_inside in list(self._prev_in_zone_by_id[zone_id].items()):
                 if was_inside and rid not in current_resolved_ids:
                     dwell = self.get_zone_time(zone_id, rid)
-                    print(f"ID:{rid} left zone {zone_id} (off screen), dwell (first→last): {dwell:.1f}s")
+                    first, last = self.get_zone_first_last(zone_id, rid)
+                    self._pending_dwell.append((zone_id, rid, first, last, t_sec))
+                    print(f"ID:{rid} left zone {zone_id} (off screen), dwell (first→last): {dwell:.1f}s (buffer {self._dwell_leave_buffer_sec}s)")
                     self._prev_in_zone_by_id[zone_id][rid] = False
+
+        # Check pending: buffer exceeded = permanently left, ready to send
+        still_pending: List[Tuple[int, int, float, float, float]] = []
+        for zone_id_p, rid_p, first_p, last_p, left_at in self._pending_dwell:
+            if t_sec - left_at >= self._dwell_leave_buffer_sec:
+                dwell_p = max(0.0, last_p - first_p)
+                dwell_events_ready.append((zone_id_p, rid_p, dwell_p, first_p, last_p))
+                print(f"ID:{rid_p} permanently left zone {zone_id_p} (buffer exceeded), sending dwell {dwell_p:.1f}s")
+            else:
+                still_pending.append((zone_id_p, rid_p, first_p, last_p, left_at))
+        self._pending_dwell = still_pending
 
         frame = self.zone_1_annotator.annotate(scene=frame)
         frame = self.zone_2_annotator.annotate(scene=frame)
@@ -182,7 +231,7 @@ class SupervisionZoneTracker:
 
         people_in_zone_1 = sum(1 for v in in_zone_1 if v)
         people_in_zone_2 = sum(1 for v in in_zone_2 if v)
-        return frame, people_in_zone_1, people_in_zone_2, in_zone_1, in_zone_2, ids_for_display
+        return frame, people_in_zone_1, people_in_zone_2, in_zone_1, in_zone_2, ids_for_display, dwell_events_ready
 
     def get_zone_time(self, zone_id: int, person_id: int) -> float:
         """Dwell in zone_id = last - first for that person in that zone. zone_id is 1 or 2."""
@@ -197,3 +246,22 @@ class SupervisionZoneTracker:
         first = self._first_seen_in_zone_sec.get(zone_id, {}).get(pid, 0.0)
         last = self._last_seen_in_zone_sec.get(zone_id, {}).get(pid, 0.0)
         return (first, last)
+
+    def get_dwell_events_to_flush(self) -> List[DwellEventReady]:
+        """
+        Call at video end: return all dwell events to send (pending + still in zone).
+        Buffer is ignored — we flush everything.
+        """
+        events: List[DwellEventReady] = []
+        for zone_id_p, rid_p, first_p, last_p, _ in self._pending_dwell:
+            dwell_p = max(0.0, last_p - first_p)
+            events.append((zone_id_p, rid_p, dwell_p, first_p, last_p))
+        self._pending_dwell = []
+        for zone_id in (1, 2):
+            for rid, inside in self._prev_in_zone_by_id[zone_id].items():
+                if inside:
+                    first, last = self.get_zone_first_last(zone_id, rid)
+                    dwell = max(0.0, last - first)
+                    if dwell > 0:
+                        events.append((zone_id, rid, dwell, first, last))
+        return events

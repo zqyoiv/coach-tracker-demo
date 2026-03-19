@@ -1,0 +1,6 @@
+timestamp,video_path,event_type,person_id,zone_id,dwell_sec,time_on_screen_sec,start_sec,end_sec,total_frames,fps,processing_sec,camera_id
+2026-03-19T01:17:26.758485+00:00,C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-1\coach-1-1-20260313123359-20260313123859-5.mp4,run_start,,,,,,,800,10.018785222291797,,coach-1
+2026-03-19T01:17:35.220072+00:00,C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-1\coach-1-1-20260313123359-20260313123859-5.mp4,person_summary,1,1,4.29,4.39,0.0,4.39,800,10.018785222291797,8.44,coach-1
+2026-03-19T01:17:35.220072+00:00,C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-1\coach-1-1-20260313123359-20260313123859-5.mp4,person_summary,2,1,0.0,4.39,0.0,4.39,800,10.018785222291797,8.44,coach-1
+2026-03-19T01:17:35.339179+00:00,C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-1\coach-1-1-20260313123359-20260313123859-5.mp4,dwell,1,1,4.29,,0.0,4.29,,,,coach-1
+2026-03-19T01:17:35.339179+00:00,C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-1\coach-1-1-20260313123359-20260313123859-5.mp4,run_complete,,,,,,,800,10.018785222291797,8.44,coach-1

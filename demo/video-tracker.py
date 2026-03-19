@@ -1,6 +1,6 @@
 """
 Run person tracking on a video file and print a report of time on screen per person.
-Usage: python video-tracker.py <video_path>
+Usage: python demo/video-tracker.py <video_path>
 
 Speed: uses GPU + FP16 if available; reduce IMG_SIZE or use yolo11n.pt for faster runs.
 """
@@ -8,6 +8,11 @@ import os
 import sys
 import time
 from pathlib import Path
+
+# Add project root to path when running from demo/ subfolder
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 import cv2
 import torch
@@ -17,7 +22,7 @@ from utils.person_id_cache import PersonFeatureCache, extract_feature
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parent / ".env")
+    load_dotenv(_project_root / ".env")
 except ImportError:
     pass
 
@@ -33,7 +38,7 @@ USE_SUPERVISION = _env_bool("USE_SUPERVISION", True)
 # Paths and numbers
 VIDEO_PATH = "C:/Users/vioyq/Desktop/Coach_Tracker/lighting-videos/daylight-cloudy.mp4"
 IMG_SIZE = 480
-TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
+TRACKER_CFG = str(_project_root / "yaml" / "basic-tracker-config.yaml")
 ZONE_ID = 1
 CACHE_MATCH_THRESH = 0.75
 

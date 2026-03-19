@@ -47,7 +47,7 @@ def _get_token():
 
 
 def _is_send_enabled():
-    """True if SEND_TO_MIXPANEL is not false/0/no/off (default True for local testing off)."""
+    """True only if SEND_TO_MIXPANEL is explicitly true/1/yes/on (default False = Mixpanel off)."""
     try:
         from dotenv import load_dotenv
         load_dotenv(_BASE_DIR / ".env")
@@ -55,8 +55,8 @@ def _is_send_enabled():
     except ImportError:
         pass
     v = (os.environ.get("SEND_TO_MIXPANEL") or os.environ.get("send_to_mixpanel") or "").strip().lower()
-    if v in ("false", "0", "no", "off"):
-        return False
+    if v in ("true", "1", "yes", "on"):
+        return True
     for env_path in [_BASE_DIR / ".env", Path.cwd() / ".env"]:
         if not env_path.exists():
             continue
@@ -66,12 +66,12 @@ def _is_send_enabled():
                     line = line.strip()
                     if line.upper().startswith("SEND_TO_MIXPANEL="):
                         val = line.split("=", 1)[1].strip().strip('"\'').lower()
-                        if val in ("false", "0", "no", "off"):
-                            return False
+                        if val in ("true", "1", "yes", "on"):
+                            return True
                         break
         except Exception:
             pass
-    return True
+    return False
 
 
 def log_dwell(

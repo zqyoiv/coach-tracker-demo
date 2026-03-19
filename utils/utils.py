@@ -36,3 +36,11 @@ def env_bool(key: str, default: bool = True) -> bool:
     """Read a boolean from os.environ; default when key is missing."""
     v = (os.environ.get(key) or str(default)).strip().lower()
     return v in ("1", "true", "yes")
+
+
+def env_float(key: str, default: float) -> float:
+    """Read a float from os.environ; default when key is missing or invalid."""
+    try:
+        return float(os.environ.get(key, str(default)).strip())
+    except (ValueError, TypeError):
+        return default

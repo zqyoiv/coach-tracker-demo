@@ -1,7 +1,7 @@
 """
 On-site test video paths. Scans reolink/ and tapo/ under 0304cymy-test-video;
 excludes raw-footage (and "raw footage") and any video whose filename matches
-its parent folder name. Use in video-play-tracker: e.g.
+its parent folder name. Use in demo/video-play-tracker or coach-1: e.g.
   from utils.onsite_video_path import REOLINK_EYELEVEL_0
   VIDEO_PATH = REOLINK_EYELEVEL_0
 

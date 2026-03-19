@@ -1,5 +1,5 @@
 """
-Person ID feature cache for video-tracker and video-play-tracker.
+Person ID feature cache for demo/video-tracker, demo/video-play-tracker, and coach-1.
 Stores each resolved person ID and their appearance features; when the tracker assigns
 a "new" ID, we match against this cache (cosine similarity) and reuse the same ID if
 it's the same person. This reduces ID fragmentation when the tracker loses and

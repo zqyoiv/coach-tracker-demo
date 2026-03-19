@@ -1,15 +1,22 @@
 import os
+import sys
 import cv2
 import time
 from pathlib import Path
 import numpy as np
+
+# Add project root to path when running from demo/ subfolder
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from ultralytics import YOLO
 from utils.supervision_helpers import SupervisionZoneTracker
 from utils.person_id_cache import PersonFeatureCache, extract_feature
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parent / ".env")
+    load_dotenv(_project_root / ".env")
 except ImportError:
     pass
 
@@ -24,7 +31,7 @@ USE_REALSENSE = False
 USE_PERSON_CACHE = _env_bool("USE_PERSON_CACHE", True)
 # Paths and numbers
 MODEL_SOURCE = "yolo11x.pt"
-TRACKER_CFG = str(Path(__file__).resolve().parent / "yaml" / "basic-tracker-config.yaml")
+TRACKER_CFG = str(_project_root / "yaml" / "basic-tracker-config.yaml")
 ZONE_ID = 1
 CAMERA_INDEX = 0
 CACHE_MATCH_THRESH = 0.75
@@ -55,7 +62,7 @@ else:
     cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
 
 # Create a named window that can be resized
-cv2.namedWindow("Store Monitor", cv2.WINDOW_NORMAL) 
+cv2.namedWindow("Store Monitor", cv2.WINDOW_NORMAL)
 
 # Set the window size (Width, Height)
 cv2.resizeWindow("Store Monitor", 1920, 1080)
@@ -97,9 +104,9 @@ while True:
 
     # 3. Run tracking (persist=True keeps same ID across frames; classes=[0] = person only)
     results = model.track(
-        frame, 
+        frame,
         persist=True,
-        classes=[0], 
+        classes=[0],
         tracker=TRACKER_CFG,
         verbose=False)
 

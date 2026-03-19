@@ -1,6 +1,6 @@
 Install: `pip install -r requirements.txt`
 
-Run: `python realtime-tracker.py` or `python video-tracker.py <video.mp4>`
+Run: `python demo/realtime-tracker.py` or `python demo/video-tracker.py <video.mp4>`
 
 **Venv (optional):**
 ```bash
@@ -21,11 +21,12 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 (Or `cu124` / `cu118` for other CUDA versions.)
 
 **Mixpanel (dwell logging)**
-No web server: scripts send events directly to Mixpanel when a person leaves (realtime) or at end of run (video). In `.env`: `MIXPANEL_TOKEN=your_token`, and `SEND_TO_MIXPANEL=false` to disable (local-only, no requests). Set zone in code: `ZONE_ID = 1` in realtime-tracker.py and video-tracker.py. Events sent: `Dwell` with properties `person_id`, `dwell_time_sec`, `zone`, `start_time`, `end_time`.
+No web server: scripts send events directly to Mixpanel when a person leaves (realtime) or at end of run (video). In `.env`: `MIXPANEL_TOKEN=your_token`, and `SEND_TO_MIXPANEL=false` to disable (local-only, no requests). Set zone in code: `ZONE_ID = 1` in demo/realtime-tracker.py and demo/video-tracker.py. Events sent: `Dwell` with properties `person_id`, `dwell_time_sec`, `zone`, `start_time`, `end_time`.
 
 **Files**
-- **realtime-tracker.py** — Live camera (or RealSense) person tracking; shows boxes and on-screen time, logs when someone leaves or returns.
-- **video-tracker.py** — Runs the same tracker on a video file and prints a report of time-on-screen per person (and processing stats).
+- **demo/realtime-tracker.py** — Live camera (or RealSense) person tracking; shows boxes and on-screen time, logs when someone leaves or returns.
+- **demo/video-tracker.py** — Runs the same tracker on a video file and prints a report of time-on-screen per person (and processing stats).
+- **demo/video-play-tracker.py** — Video tracker with live viewer window; press 'q' to quit.
 - **yaml/basic-tracker-config.yaml** — Tracker config shared by both scripts (BoT-SORT + ReID, buffer, thresholds). Tune this so one person keeps one ID across leave/re-enter.
 
 **yaml/basic-tracker-config.yaml parameters**
