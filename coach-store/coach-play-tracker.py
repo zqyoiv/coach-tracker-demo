@@ -44,7 +44,8 @@ ZONE_DIR = BASE_DIR / "zone"
 CSV_STATE_DIR = BASE_DIR / "CSV-state"
 PERSON_ID_DIR = BASE_DIR / "person-ID"
 CSV_HEADER = ["timestamp", "person_id", "dwell_sec", "zone_id", "camera_id"]
-VIDEO_PATH = onsite_video_path.TAPO_EYELEVEL_0
+# Optional local default; on cloud/batch runs a positional video_path is provided.
+VIDEO_PATH = getattr(onsite_video_path, "TAPO_EYELEVEL_0", "")
 
 USE_ENSEMBLE = False
 USE_PERSON_CACHE = env_bool("USE_PERSON_CACHE", True)
@@ -207,6 +208,9 @@ def main():
     show_viewer = not args.no_viewer
     video_path = args.video_path
 
+    if not video_path:
+        print("Error: video_path is required (no default sample path available in this environment).")
+        sys.exit(1)
     if not Path(video_path).exists():
         print(f"Error: video file not found: {video_path}")
         sys.exit(1)

@@ -38,6 +38,26 @@ def normalize_date(date_text: str) -> str:
     return f"{month}-{day}"
 
 
+def _canon(s: str) -> str:
+    """Canonical string for case-insensitive, punctuation-insensitive matching."""
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def find_child_dir(parent: Path, candidates: list[str]) -> Path | None:
+    """
+    Find a subdirectory under `parent` matching any candidate name, using
+    canonical comparison (case-insensitive; ignores separators like -/_/space).
+    """
+    if not parent.exists() or not parent.is_dir():
+        return None
+
+    wanted = {_canon(c) for c in candidates}
+    for p in parent.iterdir():
+        if p.is_dir() and _canon(p.name) in wanted:
+            return p
+    return None
+
+
 def is_url(value: str) -> bool:
     try:
         parsed = urlparse(value)
@@ -171,10 +191,37 @@ def main() -> int:
         print(f"Error: {e}")
         return 1
 
-    target_folder = root_folder / date_folder / camera_folder
-    if not target_folder.exists() or not target_folder.is_dir():
-        print(f"Error: target folder not found: {target_folder}")
+    # Robust folder resolution for Drive/Colab where names may vary in case/format.
+    month, day = [int(x) for x in date_folder.split("-")]
+    date_candidates = [
+        f"{month}-{day}",
+        f"{month:02d}-{day:02d}",
+        f"{month}/{day}",
+        f"{month:02d}/{day:02d}",
+    ]
+    date_dir = find_child_dir(root_folder, date_candidates)
+    if date_dir is None:
+        print(f"Error: date folder not found under {root_folder}")
+        print(f"Tried variants: {date_candidates}")
         return 1
+
+    cam_num_match = re.search(r"([1-5])$", args.camera.strip())
+    cam_num = cam_num_match.group(1) if cam_num_match else ""
+    camera_candidates = [
+        camera_folder,           # Coach-1
+        camera_folder.lower(),   # coach-1
+        f"coach-{cam_num}",
+        f"Coach-{cam_num}",
+        f"coach{cam_num}",
+        f"Coach{cam_num}",
+    ]
+    camera_dir = find_child_dir(date_dir, camera_candidates)
+    if camera_dir is None:
+        print(f"Error: camera folder not found under {date_dir}")
+        print(f"Tried variants: {camera_candidates}")
+        return 1
+
+    target_folder = camera_dir
 
     videos = list_videos_chronological(target_folder)
     if not videos:
