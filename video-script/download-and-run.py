@@ -1,7 +1,7 @@
 import google.auth
 from googleapiclient.discovery import build
 
-credentials, _ = google.auth.default(
+credentials, project = google.auth.default(
     scopes=['https://www.googleapis.com/auth/cloud-platform']
 )
 
