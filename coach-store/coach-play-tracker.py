@@ -43,7 +43,7 @@ BASE_DIR = Path(__file__).resolve().parent
 ZONE_DIR = BASE_DIR / "zone"
 CSV_STATE_DIR = BASE_DIR / "CSV-state"
 PERSON_ID_DIR = BASE_DIR / "person-ID"
-CSV_HEADER = ["timestamp", "person_id", "dwell_sec", "zone_id", "camera_id"]
+CSV_HEADER = ["timestamp", "person_id", "dwell_sec", "zone_id", "camera_id", "source_video"]
 # Optional local default; on cloud/batch runs a positional video_path is provided.
 VIDEO_PATH = getattr(onsite_video_path, "TAPO_EYELEVEL_0", "")
 
@@ -204,6 +204,11 @@ def main():
     parser = argparse.ArgumentParser(description="Unified coach person tracking with per-camera zone")
     parser.add_argument("video_path", nargs="?", default=VIDEO_PATH, help="Path to video file")
     parser.add_argument("--no-viewer", action="store_true", help="Run headless (no display window)")
+    parser.add_argument(
+        "--csv-output",
+        default="",
+        help="Optional CSV output path. If provided, rows are appended (header written once).",
+    )
     args = parser.parse_args()
     show_viewer = not args.no_viewer
     video_path = args.video_path
@@ -253,6 +258,9 @@ def main():
     csv_dir = CSV_STATE_DIR / camera_slug
     csv_dir.mkdir(parents=True, exist_ok=True)
     csv_path = csv_dir / f"{mmdd}-{camera_slug}-{run_stamp}.csv"
+    if args.csv_output:
+        csv_path = Path(args.csv_output)
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
     person_id_state_path = PERSON_ID_DIR / camera_slug / f"{mmdd}.json"
 
     if person_cache is not None:
@@ -265,10 +273,6 @@ def main():
     def _append_csv(row: dict):
         out = {k: row.get(k, "") for k in CSV_HEADER}
         csv_rows.append(out)
-
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=CSV_HEADER, extrasaction="ignore")
-        w.writeheader()
 
     viewer_msg = "Press 'q' to quit." if show_viewer else "(headless)"
     print(f"[{camera_slug}] {video_path} ({total_frames} frames @ {fps:.1f} fps). {viewer_msg}")
@@ -462,6 +466,7 @@ def main():
             "dwell_sec": round(dwell_z1, 2),
             "zone_id": zone_label,
             "camera_id": camera_id,
+            "source_video": Path(video_path).name,
         })
 
     if USE_SUPERVISION and sv_helper is not None:
@@ -483,9 +488,18 @@ def main():
         except Exception as e:
             print(f"Warning: could not save Person-ID memory ({person_id_state_path}): {e}")
 
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+    append_mode = bool(args.csv_output)
+    write_header = True
+    if append_mode and csv_path.exists():
+        try:
+            write_header = csv_path.stat().st_size == 0
+        except OSError:
+            write_header = True
+
+    with open(csv_path, "a" if append_mode else "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=CSV_HEADER, extrasaction="ignore")
-        w.writeheader()
+        if write_header:
+            w.writeheader()
         w.writerows(csv_rows)
     print(f"CSV written: {csv_path}")
     print("--- end report ---")

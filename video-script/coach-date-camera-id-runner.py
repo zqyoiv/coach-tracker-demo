@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_VIDEO_ROOT = Path(r"C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video")
 TRACKER_SCRIPT = PROJECT_ROOT / "coach-store" / "coach-play-tracker.py"
+CSV_STATE_ROOT = PROJECT_ROOT / "coach-store" / "CSV-state"
 
 
 def normalize_camera(camera: str) -> str:
@@ -136,8 +137,14 @@ def list_videos_chronological(target_folder: Path) -> list[Path]:
     return videos
 
 
-def run_tracker_for_video(video_path: Path, no_viewer: bool) -> int:
-    cmd = [sys.executable, str(TRACKER_SCRIPT), str(video_path)]
+def run_tracker_for_video(video_path: Path, no_viewer: bool, combined_csv_path: Path) -> int:
+    cmd = [
+        sys.executable,
+        str(TRACKER_SCRIPT),
+        str(video_path),
+        "--csv-output",
+        str(combined_csv_path),
+    ]
     if no_viewer:
         cmd.append("--no-viewer")
     print(f"\n=== Running: {video_path.name} ===")
@@ -229,6 +236,14 @@ def main() -> int:
         print(f"No .mp4 files found in: {target_folder}")
         return 0
 
+    cam_num = cam_num or "0"
+    camera_slug = f"coach{cam_num}"
+    run_stamp = time.strftime("%Y%m%d-%H%M%S")
+    combined_csv_dir = CSV_STATE_ROOT / camera_slug
+    combined_csv_dir.mkdir(parents=True, exist_ok=True)
+    combined_csv_path = combined_csv_dir / f"{month:02d}{day:02d}-{camera_slug}-{run_stamp}.csv"
+    print(f"Combined CSV output: {combined_csv_path}")
+
     print(f"Found {len(videos)} video(s) in {target_folder}")
     for idx, v in enumerate(videos, start=1):
         print(f"{idx:03d}. {v.name}")
@@ -244,7 +259,7 @@ def main() -> int:
             f"\n[Progress] {i}/{total} ({progress * 100:5.1f}%) "
             f"| elapsed {elapsed:7.1f}s | ETA {eta:7.1f}s"
         )
-        rc = run_tracker_for_video(v, no_viewer=args.no_viewer)
+        rc = run_tracker_for_video(v, no_viewer=args.no_viewer, combined_csv_path=combined_csv_path)
         if rc != 0:
             failures += 1
             print(f"Warning: run failed ({rc}) for {v.name}")
