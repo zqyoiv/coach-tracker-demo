@@ -7,8 +7,7 @@ credentials, _ = google.auth.default(
 
 service = build('drive', 'v3', credentials=credentials)
 
-# 2. 测试列出文件夹（替换为你截图中那个 long ID）
-folder_id = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkm1CIK' 
+folder_id = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkmlCIK' 
 results = service.files().list(
     q=f"'{folder_id}' in parents and trashed = false",
     fields="files(id, name)").execute()
