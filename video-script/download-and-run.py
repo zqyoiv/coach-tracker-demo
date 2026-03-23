@@ -1,9 +1,10 @@
 import google.auth
 from googleapiclient.discovery import build
-import os
 
-# 1. 自动利用 VM 身份授权
-credentials, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/drive'])
+credentials, _ = google.auth.default(
+    scopes=['https://www.googleapis.com/auth/cloud-platform']
+)
+
 service = build('drive', 'v3', credentials=credentials)
 
 # 2. 测试列出文件夹（替换为你截图中那个 long ID）
