@@ -1,13 +1,21 @@
 import google.auth
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
-credentials, project = google.auth.default(
-    scopes=['https://www.googleapis.com/auth/drive.readonly']
-)
+# 强制指定最高权限 Scope
+SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
-if not credentials:
-    print("错误：未能获取到 VM 身份凭证！")
+# 1. 获取凭证
+credentials, project = google.auth.default()
 
+# 2. 核心操作：如果凭证没有 scopes，或者 scopes 不对，强制刷新它
+if credentials.requires_scopes:
+    credentials = credentials.with_scopes(SCOPES)
+
+# 3. 确保凭证是有效的（刷新一下）
+credentials.refresh(Request())
+
+# 4. 构造 service
 service = build('drive', 'v3', credentials=credentials)
 
 folder_id = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkm1CIK'
