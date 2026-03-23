@@ -5,6 +5,9 @@ credentials, project = google.auth.default(
     scopes=['https://www.googleapis.com/auth/drive.readonly']
 )
 
+if not credentials:
+    print("错误：未能获取到 VM 身份凭证！")
+    
 service = build('drive', 'v3', credentials=credentials)
 
 folder_id = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkmlCIK' 
