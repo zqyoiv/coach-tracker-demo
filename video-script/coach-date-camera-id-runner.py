@@ -12,6 +12,7 @@ import argparse
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -233,7 +234,16 @@ def main() -> int:
         print(f"{idx:03d}. {v.name}")
 
     failures = 0
-    for v in videos:
+    run_start = time.perf_counter()
+    total = len(videos)
+    for i, v in enumerate(videos, start=1):
+        elapsed = time.perf_counter() - run_start
+        progress = i / total if total else 1.0
+        eta = (elapsed / progress - elapsed) if progress > 0 else 0.0
+        print(
+            f"\n[Progress] {i}/{total} ({progress * 100:5.1f}%) "
+            f"| elapsed {elapsed:7.1f}s | ETA {eta:7.1f}s"
+        )
         rc = run_tracker_for_video(v, no_viewer=args.no_viewer)
         if rc != 0:
             failures += 1
@@ -241,10 +251,11 @@ def main() -> int:
             if args.stop_on_error:
                 break
 
+    total_elapsed = time.perf_counter() - run_start
     if failures:
-        print(f"\nDone with {failures} failed run(s).")
+        print(f"\nDone with {failures} failed run(s). Total time: {total_elapsed:.1f}s")
         return 1
-    print("\nDone. All videos processed.")
+    print(f"\nDone. All videos processed. Total time: {total_elapsed:.1f}s")
     return 0
 
 
