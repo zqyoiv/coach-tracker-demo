@@ -6,9 +6,7 @@ from googleapiclient.http import MediaIoBaseDownload
 
 # ================= 配置区 =================
 KEY_FILE = 'key.json'  
-# 注意：最后四位是 lCIK (小写字母 L)，不是 1CIK
 ROOT_FOLDER_ID = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkmlCIK'  
-# 建议使用绝对路径，或者 expanduser 来处理 ~ 符号
 LOCAL_ROOT = os.path.expanduser('~/coach-raw-video') 
 # ==========================================
 
@@ -17,60 +15,54 @@ creds = service_account.Credentials.from_service_account_file(
 )
 service = build('drive', 'v3', credentials=creds)
 
-def download_folder_recursive(folder_id, local_path):
+def download_recursive(folder_id, local_path):
     if not os.path.exists(local_path):
-        os.makedirs(local_path)
-        print(f"📁 创建文件夹: {local_path}")
-
-    # 列出内容
+        os.makedirs(local_path, exist_user=True)
+    
     results = service.files().list(
         q=f"'{folder_id}' in parents and trashed = false",
-        fields="files(id, name, mimeType)", # 注意这里是 mimeType
+        fields="files(id, name, mimeType)",
         pageSize=1000
     ).execute()
     
     items = results.get('files', [])
+    print(f"\n📂 进入文件夹: {local_path} (发现 {len(items)} 个项目)")
 
     for item in items:
-        file_id = item['id']
-        file_name = item['name']
-        mime_type = item.get('mimeType', '')
-
-        # A. 如果是文件夹
-        if mime_type == 'application/vnd.google-apps.folder':
-            new_local_path = os.path.join(local_path, file_name)
-            download_folder_recursive(file_id, new_local_path)
-
-        # B. 如果是视频文件
-        elif 'video' in mime_type:
-            dest_file_path = os.path.join(local_path, file_name)
+        fid, fname, ftype = item['id'], item['name'], item['mimeType']
+        
+        # 1. 如果是文件夹 -> 递归
+        if ftype == 'application/vnd.google-apps.folder':
+            print(f"  > 发现子文件夹: {fname}，正在进入...")
+            download_recursive(fid, os.path.join(local_path, fname))
+        
+        # 2. 如果是文件 -> 强制下载 (只要不是文件夹统统下载)
+        else:
+            dest_path = os.path.join(local_path, fname)
             
-            if os.path.exists(dest_file_path):
-                print(f"⏩ 跳过: {file_name}")
-                continue
-
-            print(f"📥 下载中: {file_name}...", end='', flush=True)
+            # 这里的判断改松了：只要名字以常见视频后缀结尾，或者类型里带 video
+            is_video = 'video' in ftype or fname.lower().endswith(('.mp4', '.mov', '.avi', '.mkv', '.webm'))
             
-            try:
-                request = service.files().get_media(fileId=file_id)
-                fh = io.FileIO(dest_file_path, 'wb')
-                downloader = MediaIoBaseDownload(fh, request)
-                done = False
-                while not done:
-                    status, done = downloader.next_chunk()
-                print(" [完成]")
-            except Exception as e:
-                print(f" [失败] {e}")
-
-def main():
-    print(f"🚀 开始递归同步...")
-    print(f"目标 ID: {ROOT_FOLDER_ID}")
-    try:
-        download_folder_recursive(ROOT_FOLDER_ID, LOCAL_ROOT)
-        print("\n✅ 所有视频已同步至 ~/coach-raw-video")
-    except Exception as e:
-        print(f"\n❌ 运行出错: {e}")
-        print("提示：请检查 key.json 对应的 Service Account 是否已被添加为文件夹的 'Viewer' 或 'Editor'")
+            if is_video:
+                if os.path.exists(dest_path):
+                    print(f"  - [跳过] {fname} (已存在)")
+                    continue
+                
+                print(f"  - [下载] {fname} ({ftype})...", end='', flush=True)
+                try:
+                    request = service.files().get_media(fileId=fid)
+                    fh = io.FileIO(dest_path, 'wb')
+                    downloader = MediaIoBaseDownload(fh, request)
+                    done = False
+                    while not done:
+                        _, done = downloader.next_chunk()
+                    print(" [OK]")
+                except Exception as e:
+                    print(f" [失败: {e}]")
+            else:
+                print(f"  - [忽略] {fname} (类型为 {ftype}，不匹配视频格式)")
 
 if __name__ == "__main__":
-    main()
+    print("🚀 启动强制同步...")
+    download_recursive(ROOT_FOLDER_ID, LOCAL_ROOT)
+    print("\n✅ 任务结束。")
