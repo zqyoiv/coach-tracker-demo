@@ -2,8 +2,8 @@
 Run coach videos chronologically for a given date + camera.
 
 Examples:
-  python video-script/coach2-run-video.py --date 3-13 --camera coach-2
-  python video-script/coach2-run-video.py --date 03-13 --camera coach2 --no-viewer
+  python video-script/coach-date-camera-is-runner.py --date 3-13 --camera coach-2
+  python video-script/coach-date-camera-is-runner.py --date 03-13 --camera coach2 --no-viewer
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -35,6 +36,70 @@ def normalize_date(date_text: str) -> str:
     month = int(m.group(1))
     day = int(m.group(2))
     return f"{month}-{day}"
+
+
+def is_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+        return parsed.scheme in {"http", "https"}
+    except Exception:
+        return False
+
+
+def extract_drive_folder_id(url: str) -> str:
+    # Typical forms:
+    # - https://drive.google.com/drive/folders/<FOLDER_ID>
+    # - https://drive.google.com/drive/u/0/folders/<FOLDER_ID>?usp=sharing
+    m = re.search(r"/folders/([a-zA-Z0-9_-]+)", url)
+    if not m:
+        raise ValueError(
+            f"Could not parse Drive folder ID from URL: {url}\n"
+            "Use a URL like: https://drive.google.com/drive/folders/<FOLDER_ID>"
+        )
+    return m.group(1)
+
+
+def resolve_video_root(video_root_arg: str, drive_folder_url: str | None, drive_mount_root: str) -> Path:
+    """
+    Resolve the base folder that contains date/camera folders.
+    Priority:
+      1) --drive-folder-url (Google Drive URL)
+      2) --video-root
+    """
+    if drive_folder_url:
+        folder_id = extract_drive_folder_id(drive_folder_url)
+        # In Colab, shortcut/shared folders are usually available here:
+        # /content/drive/.shortcut-targets-by-id/<FOLDER_ID>
+        candidate = Path("/content/drive/.shortcut-targets-by-id") / folder_id
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+
+        # Fallback: allow custom mount root (if user mounted elsewhere).
+        candidate2 = Path(drive_mount_root) / ".shortcut-targets-by-id" / folder_id
+        if candidate2.exists() and candidate2.is_dir():
+            return candidate2
+
+        raise FileNotFoundError(
+            "Drive folder URL was provided but the mounted path could not be resolved.\n"
+            f"Tried:\n  - {candidate}\n  - {candidate2}\n"
+            "In Colab, mount Drive first:\n"
+            "  from google.colab import drive\n"
+            "  drive.mount('/content/drive')\n"
+            "Then either use a shortcut/shared folder URL, or pass --video-root with explicit mounted path."
+        )
+
+    # Allow passing a URL through --video-root too, for convenience.
+    if is_url(video_root_arg):
+        root_id = extract_drive_folder_id(video_root_arg)
+        candidate = Path("/content/drive/.shortcut-targets-by-id") / root_id
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+        raise FileNotFoundError(
+            f"--video-root looks like a URL but folder is not resolvable in mount: {video_root_arg}\n"
+            "Use --drive-folder-url (preferred) or pass --video-root as local mounted path."
+        )
+
+    return Path(video_root_arg)
 
 
 def extract_start_timestamp(name: str) -> str:
@@ -68,6 +133,19 @@ def main() -> int:
         default=str(DEFAULT_VIDEO_ROOT),
         help=f"Root containing date folders (default: {DEFAULT_VIDEO_ROOT})",
     )
+    parser.add_argument(
+        "--drive-folder-url",
+        default=None,
+        help=(
+            "Google Drive folder URL that contains date/camera subfolders "
+            "(e.g., .../drive/folders/<id>). Useful for Colab."
+        ),
+    )
+    parser.add_argument(
+        "--drive-mount-root",
+        default="/content/drive",
+        help="Drive mount root in Colab (default: /content/drive).",
+    )
     parser.add_argument("--no-viewer", action="store_true", help="Pass --no-viewer to coach-play-tracker.py")
     parser.add_argument(
         "--stop-on-error",
@@ -87,7 +165,13 @@ def main() -> int:
         print(f"Error: {e}")
         return 1
 
-    target_folder = Path(args.video_root) / date_folder / camera_folder
+    try:
+        root_folder = resolve_video_root(args.video_root, args.drive_folder_url, args.drive_mount_root)
+    except (ValueError, FileNotFoundError) as e:
+        print(f"Error: {e}")
+        return 1
+
+    target_folder = root_folder / date_folder / camera_folder
     if not target_folder.exists() or not target_folder.is_dir():
         print(f"Error: target folder not found: {target_folder}")
         return 1
