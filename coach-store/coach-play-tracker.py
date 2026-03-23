@@ -42,6 +42,7 @@ load_env()
 BASE_DIR = Path(__file__).resolve().parent
 ZONE_DIR = BASE_DIR / "zone"
 CSV_STATE_DIR = BASE_DIR / "CSV-state"
+PERSON_ID_DIR = BASE_DIR / "person-ID"
 CSV_HEADER = ["timestamp", "person_id", "dwell_sec", "zone_id", "camera_id"]
 VIDEO_PATH = onsite_video_path.TAPO_EYELEVEL_0
 
@@ -248,6 +249,14 @@ def main():
     csv_dir = CSV_STATE_DIR / camera_slug
     csv_dir.mkdir(parents=True, exist_ok=True)
     csv_path = csv_dir / f"{mmdd}-{camera_slug}-{run_stamp}.csv"
+    person_id_state_path = PERSON_ID_DIR / camera_slug / f"{mmdd}.json"
+
+    if person_cache is not None:
+        try:
+            loaded_count = person_cache.load_from_json(person_id_state_path)
+            print(f"Person-ID memory: loaded {loaded_count} IDs from {person_id_state_path}")
+        except Exception as e:
+            print(f"Warning: could not load Person-ID memory ({person_id_state_path}): {e}")
 
     def _append_csv(row: dict):
         out = {k: row.get(k, "") for k in CSV_HEADER}
@@ -462,6 +471,13 @@ def main():
                     real_start_unix + first_sec, real_start_unix + last_sec,
                     camera_id=camera_id,
                 )
+
+    if person_cache is not None:
+        try:
+            person_cache.save_to_json(person_id_state_path)
+            print(f"Person-ID memory saved: {person_id_state_path}")
+        except Exception as e:
+            print(f"Warning: could not save Person-ID memory ({person_id_state_path}): {e}")
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=CSV_HEADER, extrasaction="ignore")

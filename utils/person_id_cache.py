@@ -6,6 +6,8 @@ it's the same person. This reduces ID fragmentation when the tracker loses and
 re-creates tracks (e.g. after long occlusion).
 """
 from collections import deque
+import json
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -129,3 +131,61 @@ class PersonFeatureCache:
         self._tracker_to_resolved[tracker_id] = tracker_id
         self.add(tracker_id, feature)
         return tracker_id
+
+    def reset_tracker_map(self) -> None:
+        """Clear transient tracker_id -> resolved_id map (safe between video files)."""
+        self._tracker_to_resolved = {}
+
+    def load_from_json(self, path: Path) -> int:
+        """
+        Load cached appearance features from disk.
+        Returns number of person IDs loaded.
+        """
+        path = Path(path)
+        if not path.exists():
+            return 0
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        features = data.get("features", {})
+        loaded = 0
+        self._features = {}
+        self._tracker_to_resolved = {}
+        for k, vec_list in features.items():
+            try:
+                rid = int(k)
+            except Exception:
+                continue
+            if not isinstance(vec_list, list):
+                continue
+            dq = deque(maxlen=self.max_vectors_per_id)
+            for v in vec_list:
+                try:
+                    arr = np.asarray(v, dtype=np.float32).reshape(-1)
+                except Exception:
+                    continue
+                if arr.size == 0:
+                    continue
+                norm = float(np.linalg.norm(arr))
+                if norm > 1e-6:
+                    arr = arr / norm
+                dq.append(arr)
+            if dq:
+                self._features[rid] = dq
+                loaded += 1
+        return loaded
+
+    def save_to_json(self, path: Path) -> None:
+        """Persist cached appearance features to disk."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "match_thresh": float(self.match_thresh),
+            "max_vectors_per_id": int(self.max_vectors_per_id),
+            "features": {
+                str(rid): [v.astype(float).tolist() for v in vecs]
+                for rid, vecs in self._features.items()
+                if vecs
+            },
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=True)
