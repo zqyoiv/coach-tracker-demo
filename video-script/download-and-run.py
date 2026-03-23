@@ -2,7 +2,7 @@ import google.auth
 from googleapiclient.discovery import build
 
 credentials, project = google.auth.default(
-    scopes=['https://www.googleapis.com/auth/cloud-platform']
+    scopes=['https://www.googleapis.com/auth/drive.readonly']
 )
 
 service = build('drive', 'v3', credentials=credentials)
