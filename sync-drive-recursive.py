@@ -1,44 +1,67 @@
 import os
+import io
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 
-KEY_FILE = 'key.json'
+# ================= 配置区 =================
+KEY_FILE = 'key.json'  
+ROOT_FOLDER_ID = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkmlCIK'  
+LOCAL_ROOT = os.path.expanduser('~/coach-raw-video') 
+# ==========================================
 
 creds = service_account.Credentials.from_service_account_file(
     KEY_FILE, scopes=['https://www.googleapis.com/auth/drive.readonly']
 )
 service = build('drive', 'v3', credentials=creds)
 
-def debug_check():
-    # 1. 确认机器人是谁
-    print(f"👤 机器人账号: {creds.service_account_email}")
-    
-    # 2. 检查权限：直接尝试获取目标文件夹的元数据
-    target_id = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkmlCIK'
-    try:
-        folder = service.files().get(fileId=target_id, fields="name, mimeType", supportsAllDrives=True).execute()
-        print(f"📍 目标文件夹确认: 名称='{folder['name']}', 类型='{folder['mimeType']}'")
-    except Exception as e:
-        print(f"❌ 权限拒绝！机器人根本看不见 ID 为 {target_id} 的东西。报错: {e}")
-        print("请检查：你是否真的把文件夹 Share 给了上面的机器人账号？")
-        return
+def download_recursive(folder_id, local_path):
+    # 1. 创建本地目录
+    if not os.path.exists(local_path):
+        os.makedirs(local_path, exist_ok=True)
+        print(f"📁 创建文件夹: {local_path}")
 
-    # 3. 盲搜：列出机器人名下“所有”可见的项目
-    print("\n🔍 正在全局搜索机器人能看到的所有内容...")
+    # 2. 获取该文件夹下的内容
     results = service.files().list(
-        pageSize=20, 
+        q=f"'{folder_id}' in parents and trashed = false",
         fields="files(id, name, mimeType)",
+        pageSize=1000,
         supportsAllDrives=True,
-        includeItemsFromTrashed=False
+        includeItemsFromAllDrives=True
     ).execute()
     
     items = results.get('files', [])
-    if not items:
-        print("🕳️ 搜索结果：空。机器人是“睁眼瞎”，什么都看不见。")
-    else:
-        print(f"✨ 成功！机器人一共能看见 {len(items)} 个项目。前几个是：")
-        for item in items:
-            print(f" - {item['name']} ({item['id']})")
+    
+    for item in items:
+        fid, fname, ftype = item['id'], item['name'], item['mimeType']
+        
+        # A. 如果是子文件夹 -> 继续钻
+        if ftype == 'application/vnd.google-apps.folder':
+            download_recursive(fid, os.path.join(local_path, fname))
+            
+        # B. 如果是文件 -> 直接下载
+        else:
+            dest_path = os.path.join(local_path, fname)
+            if os.path.exists(dest_path):
+                print(f"⏩ 跳过已存在: {fname}")
+                continue
+
+            print(f"📥 正在下载: {fname}...", end='', flush=True)
+            try:
+                request = service.files().get_media(fileId=fid)
+                fh = io.FileIO(dest_path, 'wb')
+                downloader = MediaIoBaseDownload(fh, request)
+                done = False
+                while not done:
+                    status, done = downloader.next_chunk()
+                print(" [OK]")
+            except Exception as e:
+                print(f" [跳过] {e}")
 
 if __name__ == "__main__":
-    debug_check()
+    print(f"🚀 开始同步到: {LOCAL_ROOT}")
+    try:
+        download_recursive(ROOT_FOLDER_ID, LOCAL_ROOT)
+        print("\n✅ 同步圆满完成！")
+    except Exception as e:
+        print(f"\n❌ 运行中断: {e}")
