@@ -238,12 +238,15 @@ def main():
     except ImportError:
         log_dwell = None
 
-    # CSV: overwrite each run; timestamp from video filename (e.g. 3/13/2026)
+    # CSV: one file per run under date folder from video timestamp.
     csv_rows = []
     video_date = _timestamp_from_video_path(video_path)
     video_start_dt = _video_start_datetime(video_path)
     mmdd = video_start_dt.strftime("%m%d") if video_start_dt is not None else datetime.now().strftime("%m%d")
-    coach1_csv_path = _COACH1_DIR / f"{mmdd}-coach-1.csv"
+    run_stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    csv_dir = _COACH1_DIR / f"csv-{mmdd}"
+    csv_dir.mkdir(parents=True, exist_ok=True)
+    coach1_csv_path = csv_dir / f"{mmdd}-coach-1-{run_stamp}.csv"
 
     def _append_csv(row: dict):
         out = {k: row.get(k, "") for k in CSV_HEADER}
@@ -358,6 +361,7 @@ def main():
                     zone_1_polygon=z1_poly,
                     zone_2_polygon=z2_poly,
                     zone_1_color=purple_color,
+                    zone_membership_mode="center",
                     enable_heatmap=False,
                     debug_prints=False,
                 )

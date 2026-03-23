@@ -63,8 +63,8 @@ DWELL_LEAVE_BUFFER_SEC = env_float("DWELL_LEAVE_BUFFER_SEC", 5.0)
 WINDOW_NAME = "Coach-2 Play Tracker"
 
 # Purple/pink zone: normalized rectangle (x1, y1) top-left to (x2, y2) bottom-right
-# Tuned to match the purple rectangle area shown in the screenshot for coach-2.
-ZONE_NORM = (0.2345, 0.1537, 0.7854, 0.7899)  # x1, y1, x2, y2
+# Tuned to match the purple rectangle area shown in the latest coach-2 reference image.
+ZONE_NORM = (0.2818, 0.3494, 0.7657, 0.9653)  # x1, y1, x2, y2
 ZONE_LABEL = "Brooklyn + Signage"
 
 if USE_SUPERVISION:
@@ -238,12 +238,15 @@ def main():
     except ImportError:
         log_dwell = None
 
-    # CSV: overwrite each run; timestamp from video filename (e.g. 3/13/2026)
+    # CSV: one file per run under date folder from video timestamp.
     csv_rows = []
     video_date = _timestamp_from_video_path(video_path)
     video_start_dt = _video_start_datetime(video_path)
     mmdd = video_start_dt.strftime("%m%d") if video_start_dt is not None else datetime.now().strftime("%m%d")
-    coach1_csv_path = _COACH1_DIR / f"{mmdd}-coach-2.csv"
+    run_stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    csv_dir = _COACH1_DIR / f"csv-{mmdd}"
+    csv_dir.mkdir(parents=True, exist_ok=True)
+    coach1_csv_path = csv_dir / f"{mmdd}-coach-2-{run_stamp}.csv"
 
     def _append_csv(row: dict):
         out = {k: row.get(k, "") for k in CSV_HEADER}
@@ -364,6 +367,7 @@ def main():
                     zone_1_polygon=z1_poly,
                     zone_2_polygon=z2_poly,
                     zone_1_color=purple_color,
+                    zone_membership_mode="center",
                     enable_heatmap=False,
                     debug_prints=False,
                 )

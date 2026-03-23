@@ -30,6 +30,7 @@ class SupervisionZoneTracker:
         zone_2_color: Optional[sv.Color] = None,
         enable_heatmap: bool = True,
         debug_prints: bool = False,
+        zone_membership_mode: str = "any-point",
     ):
         h, w = frame_shape[:2]
         # Zone 1: left half of center area; Zone 2: right half (defaults)
@@ -69,6 +70,7 @@ class SupervisionZoneTracker:
         )
         self._enable_heatmap = enable_heatmap
         self._debug_prints = debug_prints
+        self._zone_membership_mode = str(zone_membership_mode).strip().lower()
         self.heatmap_annotator = sv.HeatMapAnnotator(
             position=sv.Position.CENTER, opacity=0.4, radius=15, kernel_size=25
         )
@@ -129,13 +131,17 @@ class SupervisionZoneTracker:
             for box in boxes_xyxy:
                 x1, y1, x2, y2 = map(float, box)
                 cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
-                test_points = [(x1, y1), (x2, y1), (x2, y2), (x1, y2), (cx, cy)]
-                inside_1 = any(
-                    cv2.pointPolygonTest(poly1, (px, py), False) >= 0 for (px, py) in test_points
-                )
-                inside_2 = any(
-                    cv2.pointPolygonTest(poly2, (px, py), False) >= 0 for (px, py) in test_points
-                )
+                if self._zone_membership_mode == "center":
+                    inside_1 = cv2.pointPolygonTest(poly1, (cx, cy), False) >= 0
+                    inside_2 = cv2.pointPolygonTest(poly2, (cx, cy), False) >= 0
+                else:
+                    test_points = [(x1, y1), (x2, y1), (x2, y2), (x1, y2), (cx, cy)]
+                    inside_1 = any(
+                        cv2.pointPolygonTest(poly1, (px, py), False) >= 0 for (px, py) in test_points
+                    )
+                    inside_2 = any(
+                        cv2.pointPolygonTest(poly2, (px, py), False) >= 0 for (px, py) in test_points
+                    )
                 in_zone_1.append(inside_1)
                 in_zone_2.append(inside_2)
 
