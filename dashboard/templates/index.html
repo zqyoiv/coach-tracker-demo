@@ -18,14 +18,22 @@
           </div>
         </div>
 
-        <form class="load-form" method="get" action="/">
+        <form class="load-form" method="get" action="/" id="csv-select-form">
           <label class="label" for="files">CSV(s)</label>
-          <select class="select" id="files" name="files" multiple size="6">
-            {% for f in csv_files %}
-              <option value="{{ f }}" {% if f in selected_files %}selected{% endif %}>{{ f }}</option>
-            {% endfor %}
+          <select class="select" id="files" name="files" multiple size="6" {% if hide_csv_list %}disabled{% endif %}>
+            {% if hide_csv_list %}
+              <option disabled selected value="">（列表已收起 — 点「Show CSV list」展开；不删磁盘文件）</option>
+            {% else %}
+              {% for row in csv_rows %}
+                <option value="{{ row.rel }}" title="{{ row.rel }}" {% if row.rel in selected_files %}selected{% endif %}>{{ row.label }}</option>
+              {% endfor %}
+            {% endif %}
           </select>
-          <button type="submit" class="btn">Load</button>
+          <button type="submit" class="btn" {% if hide_csv_list %}disabled title="先显示 CSV 列表"{% endif %}>Load</button>
+          <a class="btn btn-muted" href="{{ url_for('index_get', clear=1) }}" title="Clear charts and hide the file list (does not delete files on disk)">Clear dashboard</a>
+          {% if hide_csv_list %}
+            <a class="btn btn-muted" href="{{ url_for('index_get', show_csv_list=1) }}" title="Show the CSV picker again (still read-only)">Show CSV list</a>
+          {% endif %}
         </form>
 
         <form class="load-form" method="post" action="/upload" enctype="multipart/form-data">

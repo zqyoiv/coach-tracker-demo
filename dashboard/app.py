@@ -1,16 +1,28 @@
+"""
+Dashboard: read-only analytics on CSV data.
+
+Never delete, move, or overwrite user CSV files on disk.
+
+Clear dashboard: clears charts and collapses the CSV picker (session only).
+Show CSV list: expands it again. Short labels in the list; full path on hover.
+Never deletes files on disk.
+"""
+
 from __future__ import annotations
 
 import csv
 import io
+import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import IO, Any, Iterable, Optional
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session
 
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-dashboard-session-not-for-production")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -189,25 +201,67 @@ def _compute_dashboard(events: list[dict[str, Any]]) -> DashboardData:
 
 
 def _list_available_csvs() -> list[str]:
-    # Find all CSVs under coach-*/ (e.g. coach-1/0313-coach-1.csv)
-    out: list[str] = []
-    for p in PROJECT_ROOT.glob("coach-*/**/*.csv"):
-        out.append(str(p.relative_to(PROJECT_ROOT)))
+    """CSV paths relative to project root (for the picker). Does not delete or move files."""
+    out: set[str] = set()
+    for pattern in (
+        "coach-*/**/*.csv",
+        "coach-store/CSV-state/**/*.csv",
+        "dashboard/csv/**/*.csv",
+    ):
+        for p in PROJECT_ROOT.glob(pattern):
+            if p.is_file() and p.suffix.lower() == ".csv":
+                out.add(str(p.relative_to(PROJECT_ROOT)))
     return sorted(out)
+
+
+def _short_csv_label(rel: str) -> str:
+    """Short text for the dropdown; full path stays in <option title>."""
+    parts = rel.replace("\\", "/").split("/")
+    name = parts[-1] if parts else rel
+    try:
+        if "CSV-state" in parts:
+            i = parts.index("CSV-state")
+            cam = parts[i + 1] if i + 1 < len(parts) else ""
+            return f"{cam} · {name}"
+    except (ValueError, IndexError):
+        pass
+    if len(parts) >= 3 and parts[0] == "dashboard" and parts[1] == "csv":
+        return f"{parts[2]} · {name}"
+    if len(parts) >= 2:
+        return f"{parts[0]} · {name}"
+    return name
+
+
+def _csv_rows_for_template(paths: list[str]) -> list[dict[str, str]]:
+    return [{"rel": r, "label": _short_csv_label(r)} for r in paths]
 
 
 @app.get("/")
 def index_get():
     csv_files = _list_available_csvs()
+    hide_csv_list = bool(session.get("hide_csv_list", False))
+
+    if request.args.get("show_csv_list"):
+        session["hide_csv_list"] = False
+        hide_csv_list = False
+
     # Support multi-select: ?files=a.csv&files=b.csv
     selected_files = request.args.getlist("files")
-    # Back-compat: older versions used single "file" param.
     if not selected_files:
         single = request.args.get("file")
         if single:
             selected_files = [single]
-    if not selected_files and csv_files:
+
+    # ?clear=1 — clear charts, clear selection, collapse long file list (session only; no disk delete)
+    if request.args.get("clear"):
+        session["hide_csv_list"] = True
+        hide_csv_list = True
+        selected_files = []
+    elif not selected_files and csv_files and not hide_csv_list:
         selected_files = [csv_files[0]]
+
+    # When list is collapsed, do not render long paths in the <select>
+    csv_rows = [] if hide_csv_list else _csv_rows_for_template(csv_files)
 
     events: list[dict[str, Any]] = []
     for rel in selected_files:
@@ -218,7 +272,8 @@ def index_get():
     data = _compute_dashboard(events)
     return render_template(
         "index.html",
-        csv_files=csv_files,
+        csv_rows=csv_rows,
+        hide_csv_list=hide_csv_list,
         selected_files=selected_files,
         data=data.__dict__,
     )
@@ -240,10 +295,14 @@ def upload_post():
     if not any_loaded:
         return index_get()
 
+    session["hide_csv_list"] = False
     data = _compute_dashboard(events)
+    all_csv = _list_available_csvs()
+    csv_rows = _csv_rows_for_template(all_csv)
     return render_template(
         "index.html",
-        csv_files=_list_available_csvs(),
+        csv_rows=csv_rows,
+        hide_csv_list=False,
         selected_files=[],
         data=data.__dict__,
     )
