@@ -1,0 +1,381 @@
+# date=3-20
+# cmd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\venv\Scripts\python.exe -u C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\video-script\coach-date-camera-id-runner.py --date 3-20 --camera coach-4 --video-root C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video --drive-mount-root /content/drive --no-viewer
+# cwd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo
+
+Combined CSV output: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0320-coach4-20260324-181324.csv
+Found 11 video(s) in C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-20\Coach-4
+001. Coach-4-hour-1-20260320095957.mp4
+002. Coach-4-hour-2-20260320105957.mp4
+003. Coach-4-hour-3-20260320115957.mp4
+004. Coach-4-hour-4-20260320125957.mp4
+005. Coach-4-hour-5-20260320135957.mp4
+006. Coach-4-hour-6-20260320145957.mp4
+007. Coach-4-hour-7-20260320155957.mp4
+008. Coach-4-hour-8-20260320165957.mp4
+009. Coach-4-hour-9-20260320175957.mp4
+010. Coach-4-hour-10-20260320190000.mp4
+011. Coach-4-hour-11-20260320200001.mp4
+
+[Progress] 1/11 (  9.1%) | elapsed     0.0s | ETA     0.0s
+
+=== Running: Coach-4-hour-1-20260320095957.mp4 ===
+Person-ID memory: loaded 0 IDs from C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach4\0320.json
+[coach4] C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-20\Coach-4\Coach-4-hour-1-20260320095957.mp4 (36000 frames @ 10.0 fps). (headless)
+Config: yaml=coach4.yaml zone=C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\zone\coach4.json
+Output CSV: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0320-coach4-20260324-181324.csv
+
+--- Report ---
+Time spent processing: 1510.3s
+Time on screen per person:
+  Person 0 on screen for 2748.7s | zone=0.0s
+  Person 1 on screen for 2687.6s | zone=17.8s
+  Person 2 on screen for 2831.8s | zone=0.2s
+  Person 3 on screen for 2329.7s | zone=9.3s
+  Person 4 on screen for 3589.8s | zone=0.1s
+  Person 5 on screen for 0.2s | zone=0.4s
+  Person 8 on screen for 3174.0s | zone=3.0s
+  Person 10 on screen for 3188.9s | zone=140.2s
+  Person 11 on screen for 2628.2s | zone=0.2s
+  Person 12 on screen for 3582.5s | zone=3.4s
+  Person 14 on screen for 1380.1s | zone=1.2s
+  Person 16 on screen for 108.8s | zone=0.6s
+  Person 21 on screen for 22.5s | zone=0.0s
+  Person 22 on screen for 3401.6s | zone=57.7s
+  Person 27 on screen for 7.9s | zone=0.7s
+  Person 28 on screen for 3385.4s | zone=3385.3s
+  Person 29 on screen for 3509.5s | zone=0.4s
+  Person 30 on screen for 1896.9s | zone=0.2s
+  Person 31 on screen for 0.2s | zone=0.6s
+  Person 36 on screen for 3332.2s | zone=18.5s
+  Person 39 on screen for 3227.2s | zone=200.1s
+  Person 40 on screen for 1936.7s | zone=5.6s
+  Person 41 on screen for 0.1s | zone=5.9s
+  Person 48 on screen for 3257.1s | zone=615.5s
+  Person 51 on screen for 3138.2s | zone=198.3s
+  Person 58 on screen for 3091.7s | zone=292.4s
+  Person 59 on screen for 3316.9s | zone=0.2s
+  Person 62 on screen for 1868.4s | zone=0.3s
+  Person 65 on screen for 3231.9s | zone=0.0s
+  Person 74 on screen for 2650.5s | zone=1.3s
+  Person 78 on screen for 2018.6s | zone=7.6s
+  Person 79 on screen for 2922.1s | zone=0.4s
+  Person 81 on screen for 2444.5s | zone=3.0s
+  Person 85 on screen for 3224.8s | zone=0.0s
+  Person 88 on screen for 3208.6s | zone=0.0s
+  Person 89 on screen for 1931.9s | zone=0.0s
+  Person 90 on screen for 3028.6s | zone=0.0s
+  Person 100 on screen for 8.2s | zone=0.3s
+  Person 109 on screen for 2497.6s | zone=2.0s
+  Person 120 on screen for 2820.5s | zone=0.4s
+  Person 123 on screen for 2979.7s | zone=0.3s
+  Person 137 on screen for 2873.5s | zone=1.8s
+  Person 145 on screen for 2596.6s | zone=0.8s
+  Person 150 on screen for 2613.6s | zone=0.0s
+  Person 153 on screen for 2701.2s | zone=0.4s
+  Person 161 on screen for 2438.5s | zone=146.8s
+  Person 164 on screen for 2673.1s | zone=1.0s
+  Person 174 on screen for 2225.4s | zone=2.3s
+  Person 194 on screen for 2055.2s | zone=29.6s
+  Person 205 on screen for 1.3s | zone=1.2s
+  Person 208 on screen for 2445.9s | zone=3.5s
+  Person 254 on screen for 2211.2s | zone=1.4s
+  Person 272 on screen for 1850.9s | zone=0.4s
+  Person 276 on screen for 1505.4s | zone=12.4s
+  Person 297 on screen for 0.3s | zone=0.0s
+  Person 304 on screen for 1447.0s | zone=0.0s
+  Person 308 on screen for 1603.1s | zone=0.1s
+  Person 310 on screen for 1834.6s | zone=24.8s
+  Person 311 on screen for 1783.3s | zone=387.9s
+  Person 326 on screen for 1511.4s | zone=0.0s
+  Person 338 on screen for 1095.9s | zone=1.2s
+  Person 356 on screen for 1550.4s | zone=0.2s
+  Person 363 on screen for 1590.7s | zone=347.4s
+  Person 369 on screen for 0.7s | zone=3.6s
+  Person 390 on screen for 1472.0s | zone=0.9s
+  Person 391 on screen for 1462.8s | zone=0.0s
+  Person 396 on screen for 0.6s | zone=0.0s
+  Person 424 on screen for 1.9s | zone=1.6s
+  Person 427 on screen for 1.5s | zone=1.6s
+  Person 433 on screen for 916.7s | zone=0.1s
+  Person 442 on screen for 776.9s | zone=0.0s
+  Person 445 on screen for 0.6s | zone=0.5s
+  Person 447 on screen for 491.8s | zone=0.1s
+  Person 496 on screen for 2.1s | zone=0.4s
+  Person 497 on screen for 809.1s | zone=196.8s
+  Person 513 on screen for 721.6s | zone=4.1s
+  Person 556 on screen for 812.9s | zone=209.8s
+  Person 616 on screen for 0.9s | zone=0.0s
+  Person 620 on screen for 27.2s | zone=2.4s
+  Person 655 on screen for 122.0s | zone=3.3s
+  Person 656 on screen for 81.4s | zone=2.5s
+  Person 664 on screen for 1.3s | zone=1.2s
+  Person 677 on screen for 0.1s | zone=0.0s
+  Person 684 on screen for 24.4s | zone=14.5s
+  Person 694 on screen for 444.2s | zone=73.5s
+  Person 723 on screen for 17.2s | zone=17.3s
+  Person 724 on screen for 0.5s | zone=7.8s
+  Person 726 on screen for 23.3s | zone=3.4s
+  Person 730 on screen for 6.5s | zone=12.3s
+  Person 736 on screen for 6.2s | zone=5.8s
+  Person 745 on screen for 0.1s | zone=5.1s
+  Person 750 on screen for 9.4s | zone=1.9s
+  Person 757 on screen for 0.1s | zone=0.2s
+  Person 759 on screen for 5.7s | zone=3.8s
+  Person 760 on screen for 4.3s | zone=2.6s
+  Person 762 on screen for 3.9s | zone=8.2s
+  Person 768 on screen for 35.1s | zone=26.8s
+  Person 788 on screen for 6.4s | zone=3.1s
+  Person 792 on screen for 220.3s | zone=0.9s
+  Person 800 on screen for 120.0s | zone=0.4s
+  Person 813 on screen for 5.4s | zone=0.0s
+  Person 816 on screen for 136.3s | zone=4.1s
+  Person 844 on screen for 41.6s | zone=0.0s
+  Person 859 on screen for 2.9s | zone=0.0s
+  Person 864 on screen for 46.6s | zone=46.0s
+  Person 866 on screen for 3.9s | zone=1.4s
+  Person 867 on screen for 7.7s | zone=7.6s
+  Person 873 on screen for 24.5s | zone=22.6s
+  Person 874 on screen for 0.5s | zone=0.4s
+Person-ID memory saved: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach4\0320.json
+CSV written: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0320-coach4-20260324-181324.csv
+--- end report ---
+
+[Progress] 2/11 ( 18.2%) | elapsed  1514.0s | ETA  6813.1s
+
+=== Running: Coach-4-hour-2-20260320105957.mp4 ===
+Person-ID memory: loaded 106 IDs from C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach4\0320.json
+[coach4] C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-20\Coach-4\Coach-4-hour-2-20260320105957.mp4 (36000 frames @ 10.0 fps). (headless)
+Config: yaml=coach4.yaml zone=C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\zone\coach4.json
+Output CSV: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0320-coach4-20260324-181324.csv
+
+--- Report ---
+Time spent processing: 1594.4s
+Time on screen per person:
+  Person 0 on screen for 0.1s | zone=0.0s
+  Person 1 on screen for 1432.6s | zone=0.7s
+  Person 2 on screen for 1816.8s | zone=1.0s
+  Person 3 on screen for 0.1s | zone=0.2s
+  Person 4 on screen for 3425.4s | zone=2.9s
+  Person 5 on screen for 1.0s | zone=1.5s
+  Person 8 on screen for 2253.8s | zone=11.2s
+  Person 10 on screen for 1914.6s | zone=0.1s
+  Person 11 on screen for 2672.8s | zone=478.3s
+  Person 12 on screen for 17.0s | zone=2.3s
+  Person 14 on screen for 752.2s | zone=0.0s
+  Person 15 on screen for 0.9s | zone=0.9s
+  Person 21 on screen for 3456.4s | zone=213.8s
+  Person 22 on screen for 3458.2s | zone=41.0s
+  Person 27 on screen for 0.3s | zone=0.0s
+  Person 28 on screen for 3036.1s | zone=3005.8s
+  Person 29 on screen for 2438.3s | zone=0.0s
+  Person 30 on screen for 3003.2s | zone=0.2s
+  Person 36 on screen for 2991.8s | zone=1713.5s
+  Person 38 on screen for 2868.7s | zone=0.2s
+  Person 39 on screen for 3388.4s | zone=1067.0s
+  Person 40 on screen for 68.9s | zone=0.9s
+  Person 48 on screen for 1223.6s | zone=0.0s
+  Person 51 on screen for 581.5s | zone=0.0s
+  Person 57 on screen for 0.5s | zone=2.0s
+  Person 58 on screen for 1.0s | zone=0.1s
+  Person 59 on screen for 2839.4s | zone=0.0s
+  Person 62 on screen for 45.5s | zone=28.5s
+  Person 65 on screen for 2962.5s | zone=0.0s
+  Person 67 on screen for 3005.4s | zone=749.6s
+  Person 71 on screen for 3327.2s | zone=0.4s
+  Person 74 on screen for 3040.5s | zone=652.5s
+  Person 78 on screen for 2028.3s | zone=663.5s
+  Person 79 on screen for 3210.5s | zone=10.4s
+  Person 80 on screen for 0.9s | zone=1.8s
+  Person 81 on screen for 672.3s | zone=51.9s
+  Person 82 on screen for 0.1s | zone=0.0s
+  Person 85 on screen for 2840.8s | zone=1047.2s
+  Person 86 on screen for 0.2s | zone=4.2s
+  Person 88 on screen for 336.1s | zone=0.0s
+  Person 89 on screen for 2359.3s | zone=398.1s
+  Person 90 on screen for 2788.9s | zone=12.1s
+  Person 100 on screen for 2721.1s | zone=0.0s
+  Person 101 on screen for 1700.5s | zone=305.4s
+  Person 104 on screen for 3.2s | zone=1.9s
+  Person 106 on screen for 3010.5s | zone=0.6s
+  Person 109 on screen for 1295.2s | zone=354.4s
+  Person 113 on screen for 3178.5s | zone=0.0s
+  Person 116 on screen for 2582.2s | zone=0.2s
+  Person 120 on screen for 3441.1s | zone=898.8s
+  Person 123 on screen for 1705.3s | zone=10.4s
+  Person 136 on screen for 720.2s | zone=1.8s
+  Person 137 on screen for 2566.8s | zone=0.1s
+  Person 145 on screen for 3231.6s | zone=7.1s
+  Person 150 on screen for 3285.6s | zone=839.7s
+  Person 153 on screen for 3508.1s | zone=11.6s
+  Person 161 on screen for 3255.4s | zone=2509.2s
+  Person 163 on screen for 3066.6s | zone=369.9s
+  Person 164 on screen for 3019.5s | zone=0.4s
+  Person 169 on screen for 354.3s | zone=0.1s
+  Person 172 on screen for 2288.9s | zone=316.8s
+  Person 174 on screen for 3291.3s | zone=0.6s
+  Person 185 on screen for 2408.5s | zone=0.0s
+  Person 187 on screen for 1977.7s | zone=0.0s
+  Person 189 on screen for 2.3s | zone=1.5s
+  Person 191 on screen for 3242.4s | zone=923.9s
+  Person 194 on screen for 2426.0s | zone=0.9s
+  Person 198 on screen for 74.0s | zone=53.4s
+  Person 204 on screen for 2.1s | zone=0.1s
+  Person 206 on screen for 2107.2s | zone=0.0s
+  Person 208 on screen for 2.8s | zone=0.1s
+  Person 210 on screen for 3142.5s | zone=4.1s
+  Person 219 on screen for 2252.2s | zone=0.0s
+  Person 229 on screen for 2.8s | zone=0.2s
+  Person 236 on screen for 2993.0s | zone=5.2s
+  Person 248 on screen for 2361.9s | zone=0.0s
+  Person 253 on screen for 2139.1s | zone=0.0s
+  Person 254 on screen for 1833.6s | zone=1323.5s
+  Person 257 on screen for 2637.8s | zone=0.4s
+  Person 260 on screen for 1.4s | zone=0.1s
+  Person 265 on screen for 2963.0s | zone=2.2s
+  Person 270 on screen for 2610.6s | zone=0.0s
+  Person 272 on screen for 3379.1s | zone=937.7s
+  Person 275 on screen for 2290.9s | zone=0.1s
+  Person 276 on screen for 1261.4s | zone=20.7s
+  Person 285 on screen for 3056.0s | zone=0.7s
+  Person 291 on screen for 2946.1s | zone=0.3s
+  Person 300 on screen for 0.7s | zone=0.1s
+  Person 303 on screen for 2552.8s | zone=5.2s
+  Person 304 on screen for 1549.3s | zone=0.0s
+  Person 308 on screen for 1420.3s | zone=0.4s
+  Person 309 on screen for 2417.1s | zone=1102.4s
+  Person 310 on screen for 420.3s | zone=0.0s
+  Person 311 on screen for 1532.6s | zone=554.6s
+  Person 312 on screen for 2007.3s | zone=0.1s
+  Person 314 on screen for 1988.7s | zone=5.0s
+  Person 317 on screen for 2.7s | zone=6.2s
+  Person 323 on screen for 1940.3s | zone=783.7s
+  Person 326 on screen for 498.7s | zone=0.0s
+  Person 329 on screen for 109.1s | zone=13.4s
+  Person 338 on screen for 11.1s | zone=0.0s
+  Person 343 on screen for 2740.5s | zone=0.0s
+  Person 356 on screen for 3491.0s | zone=53.6s
+  Person 363 on screen for 3462.7s | zone=0.4s
+  Person 369 on screen for 18.2s | zone=0.2s
+  Person 378 on screen for 2648.1s | zone=0.2s
+  Person 390 on screen for 2888.2s | zone=215.0s
+  Person 391 on screen for 3349.2s | zone=0.0s
+  Person 395 on screen for 1958.9s | zone=11.1s
+  Person 397 on screen for 819.6s | zone=55.1s
+  Person 403 on screen for 0.5s | zone=0.4s
+  Person 408 on screen for 1205.5s | zone=0.5s
+  Person 424 on screen for 3051.2s | zone=768.2s
+  Person 433 on screen for 3469.9s | zone=5.0s
+  Person 438 on screen for 2724.2s | zone=0.2s
+  Person 442 on screen for 9.0s | zone=0.0s
+  Person 447 on screen for 2210.6s | zone=249.0s
+  Person 451 on screen for 1945.6s | zone=0.0s
+  Person 458 on screen for 12.1s | zone=5.4s
+  Person 475 on screen for 2058.3s | zone=1.0s
+  Person 476 on screen for 1.1s | zone=1.7s
+  Person 478 on screen for 1938.0s | zone=0.9s
+  Person 482 on screen for 13.6s | zone=13.9s
+  Person 496 on screen for 0.6s | zone=0.3s
+  Person 497 on screen for 186.5s | zone=6.2s
+  Person 500 on screen for 2363.2s | zone=0.9s
+  Person 506 on screen for 2498.6s | zone=2497.4s
+  Person 513 on screen for 1738.5s | zone=0.2s
+  Person 532 on screen for 2484.3s | zone=24.0s
+  Person 551 on screen for 189.5s | zone=0.1s
+  Person 556 on screen for 1305.2s | zone=0.2s
+  Person 586 on screen for 1410.1s | zone=0.3s
+  Person 588 on screen for 1869.6s | zone=0.4s
+  Person 614 on screen for 7.6s | zone=12.6s
+  Person 616 on screen for 2595.8s | zone=34.8s
+  Person 618 on screen for 2206.3s | zone=536.4s
+  Person 651 on screen for 1.2s | zone=1.5s
+  Person 655 on screen for 2602.7s | zone=0.4s
+  Person 656 on screen for 2538.8s | zone=1.6s
+  Person 666 on screen for 1877.1s | zone=0.0s
+  Person 679 on screen for 1.6s | zone=1.5s
+  Person 694 on screen for 1529.7s | zone=0.3s
+  Person 718 on screen for 779.0s | zone=0.1s
+  Person 723 on screen for 2428.3s | zone=582.1s
+  Person 725 on screen for 0.8s | zone=0.4s
+  Person 726 on screen for 0.3s | zone=0.2s
+  Person 730 on screen for 3369.1s | zone=1324.2s
+  Person 742 on screen for 1943.4s | zone=936.6s
+  Person 746 on screen for 1373.5s | zone=1346.8s
+  Person 750 on screen for 3592.0s | zone=310.8s
+  Person 757 on screen for 2623.7s | zone=0.4s
+  Person 759 on screen for 2974.1s | zone=10.2s
+  Person 760 on screen for 2409.6s | zone=0.5s
+  Person 762 on screen for 3374.3s | zone=1.1s
+  Person 768 on screen for 2441.6s | zone=0.0s
+  Person 771 on screen for 456.4s | zone=0.6s
+  Person 772 on screen for 6.2s | zone=11.1s
+  Person 788 on screen for 2906.7s | zone=1095.9s
+  Person 792 on screen for 3097.7s | zone=0.9s
+  Person 800 on screen for 1993.5s | zone=1020.9s
+  Person 806 on screen for 0.4s | zone=0.3s
+  Person 813 on screen for 2295.7s | zone=0.3s
+  Person 816 on screen for 2795.0s | zone=0.2s
+  Person 817 on screen for 1307.1s | zone=0.0s
+  Person 826 on screen for 1.0s | zone=1.0s
+  Person 844 on screen for 2037.4s | zone=1.0s
+  Person 856 on screen for 1666.1s | zone=1.7s
+  Person 859 on screen for 11.1s | zone=24.1s
+  Person 864 on screen for 692.6s | zone=0.2s
+  Person 865 on screen for 914.1s | zone=294.5s
+  Person 866 on screen for 2028.8s | zone=10.1s
+  Person 867 on screen for 3306.2s | zone=0.1s
+  Person 870 on screen for 1108.2s | zone=0.4s
+  Person 873 on screen for 2840.9s | zone=0.0s
+  Person 874 on screen for 2652.4s | zone=10.0s
+  Person 884 on screen for 0.4s | zone=0.4s
+  Person 900 on screen for 1293.2s | zone=0.3s
+  Person 933 on screen for 435.2s | zone=4.3s
+  Person 952 on screen for 0.3s | zone=0.2s
+  Person 961 on screen for 784.7s | zone=399.2s
+  Person 962 on screen for 1221.7s | zone=0.3s
+  Person 972 on screen for 0.1s | zone=1.4s
+  Person 989 on screen for 3.7s | zone=7.5s
+  Person 1031 on screen for 6.2s | zone=0.0s
+  Person 1040 on screen for 2.6s | zone=0.0s
+  Person 1063 on screen for 1240.2s | zone=0.0s
+  Person 1086 on screen for 3.5s | zone=2.8s
+  Person 1127 on screen for 582.4s | zone=0.1s
+  Person 1132 on screen for 1103.2s | zone=0.2s
+  Person 1155 on screen for 1.3s | zone=0.9s
+  Person 1165 on screen for 4.7s | zone=8.0s
+  Person 1214 on screen for 3.2s | zone=0.0s
+  Person 1228 on screen for 14.6s | zone=0.4s
+  Person 1234 on screen for 616.2s | zone=571.7s
+  Person 1245 on screen for 662.2s | zone=0.0s
+  Person 1255 on screen for 650.1s | zone=1.7s
+  Person 1261 on screen for 17.1s | zone=0.6s
+  Person 1272 on screen for 2.3s | zone=0.0s
+  Person 1288 on screen for 0.1s | zone=0.0s
+  Person 1299 on screen for 2.7s | zone=2.6s
+  Person 1317 on screen for 0.2s | zone=3.8s
+  Person 1328 on screen for 87.8s | zone=12.2s
+  Person 1330 on screen for 0.8s | zone=1.0s
+  Person 1338 on screen for 518.7s | zone=504.4s
+  Person 1349 on screen for 228.4s | zone=217.2s
+  Person 1360 on screen for 310.9s | zone=0.5s
+  Person 1368 on screen for 33.9s | zone=32.4s
+  Person 1371 on screen for 528.2s | zone=523.8s
+  Person 1425 on screen for 4.7s | zone=0.0s
+  Person 1430 on screen for 0.3s | zone=1.4s
+  Person 1432 on screen for 4.7s | zone=2.5s
+  Person 1438 on screen for 31.6s | zone=31.5s
+  Person 1448 on screen for 9.0s | zone=7.5s
+  Person 1467 on screen for 190.7s | zone=0.1s
+  Person 1507 on screen for 98.0s | zone=0.0s
+  Person 1528 on screen for 17.9s | zone=17.8s
+  Person 1541 on screen for 16.2s | zone=0.1s
+  Person 1562 on screen for 39.9s | zone=19.0s
+  Person 1567 on screen for 3.8s | zone=3.1s
+  Person 1597 on screen for 7.0s | zone=5.8s
+  Person 1607 on screen for 6.3s | zone=0.7s
+Person-ID memory saved: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach4\0320.json
+CSV written: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0320-coach4-20260324-181324.csv
+--- end report ---
+
+[Progress] 3/11 ( 27.3%) | elapsed  3112.2s | ETA  8299.2s
+
+=== Running: Coach-4-hour-3-20260320115957.mp4 ===

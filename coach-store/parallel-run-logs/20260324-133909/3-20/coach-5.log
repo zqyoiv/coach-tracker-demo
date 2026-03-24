@@ -1,0 +1,124 @@
+# date=3-20
+# cmd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\venv\Scripts\python.exe -u C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\video-script\coach-date-camera-id-runner.py --date 3-20 --camera coach-5 --video-root C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video --drive-mount-root /content/drive --no-viewer
+# cwd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo
+
+Combined CSV output: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach5\0320-coach5-20260324-183723.csv
+Found 11 video(s) in C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-20\Coach-5
+001. Coach-5-hour-1-20260320095959.mp4
+002. Coach-5-hour-2-20260320105959.mp4
+003. Coach-5-hour-3-20260320115959.mp4
+004. Coach-5-hour-4-20260320125959.mp4
+005. Coach-5-hour-5-20260320135959.mp4
+006. Coach-5-hour-6-20260320145959.mp4
+007. Coach-5-hour-7-20260320155959.mp4
+008. Coach-5-hour-8-20260320165959.mp4
+009. Coach-5-hour-9-20260320175959.mp4
+010. Coach-5-hour-10-20260320190000.mp4
+011. Coach-5-hour-11-20260320200003.mp4
+
+[Progress] 1/11 (  9.1%) | elapsed     0.0s | ETA     0.0s
+
+=== Running: Coach-5-hour-1-20260320095959.mp4 ===
+Person-ID memory: loaded 0 IDs from C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach5\0320.json
+[coach5] C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-20\Coach-5\Coach-5-hour-1-20260320095959.mp4 (36000 frames @ 10.0 fps). (headless)
+Config: yaml=coach5.yaml zone=C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\zone\coach5.json
+Output CSV: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach5\0320-coach5-20260324-183723.csv
+
+--- Report ---
+Time spent processing: 1399.8s
+Time on screen per person:
+  Person 0 on screen for 2969.7s | zone=0.0s
+  Person 1 on screen for 3032.5s | zone=3032.4s
+  Person 2 on screen for 723.4s | zone=16.2s
+  Person 3 on screen for 131.5s | zone=0.4s
+  Person 4 on screen for 2794.2s | zone=2.2s
+  Person 6 on screen for 916.1s | zone=10.5s
+  Person 7 on screen for 2861.2s | zone=2.6s
+  Person 9 on screen for 3133.7s | zone=0.1s
+  Person 10 on screen for 43.2s | zone=43.4s
+  Person 11 on screen for 6.4s | zone=6.6s
+  Person 12 on screen for 33.8s | zone=35.1s
+  Person 14 on screen for 2687.3s | zone=0.1s
+  Person 16 on screen for 0.8s | zone=0.7s
+  Person 17 on screen for 286.0s | zone=5.5s
+  Person 18 on screen for 267.0s | zone=0.4s
+  Person 21 on screen for 2127.6s | zone=4.9s
+  Person 24 on screen for 623.3s | zone=622.9s
+  Person 28 on screen for 2993.7s | zone=2993.6s
+  Person 29 on screen for 25.5s | zone=25.5s
+  Person 30 on screen for 349.1s | zone=5.7s
+  Person 31 on screen for 49.0s | zone=48.9s
+  Person 32 on screen for 41.8s | zone=16.5s
+  Person 33 on screen for 826.9s | zone=823.4s
+  Person 36 on screen for 2716.0s | zone=75.9s
+  Person 37 on screen for 1220.8s | zone=186.6s
+  Person 40 on screen for 1.3s | zone=1.2s
+  Person 45 on screen for 1882.1s | zone=11.5s
+  Person 47 on screen for 2494.8s | zone=232.9s
+  Person 49 on screen for 9.8s | zone=9.9s
+  Person 50 on screen for 566.0s | zone=565.9s
+  Person 51 on screen for 10.1s | zone=10.0s
+  Person 53 on screen for 93.6s | zone=93.5s
+  Person 55 on screen for 1727.0s | zone=0.0s
+  Person 56 on screen for 96.3s | zone=96.2s
+  Person 57 on screen for 1125.9s | zone=1125.8s
+  Person 60 on screen for 1164.5s | zone=1.5s
+  Person 61 on screen for 1762.2s | zone=24.3s
+  Person 62 on screen for 59.9s | zone=32.8s
+  Person 65 on screen for 121.9s | zone=121.8s
+  Person 67 on screen for 48.5s | zone=48.4s
+  Person 71 on screen for 1563.4s | zone=0.1s
+  Person 75 on screen for 463.3s | zone=33.6s
+  Person 77 on screen for 182.3s | zone=6.6s
+  Person 78 on screen for 10.7s | zone=3.7s
+  Person 79 on screen for 180.3s | zone=81.9s
+  Person 80 on screen for 0.4s | zone=0.3s
+  Person 82 on screen for 159.0s | zone=7.5s
+  Person 83 on screen for 1702.2s | zone=0.2s
+  Person 97 on screen for 3.6s | zone=3.5s
+  Person 98 on screen for 4.4s | zone=0.3s
+  Person 100 on screen for 1206.1s | zone=1189.5s
+  Person 102 on screen for 3.2s | zone=0.1s
+  Person 104 on screen for 3.7s | zone=3.9s
+  Person 105 on screen for 583.1s | zone=526.0s
+  Person 107 on screen for 26.7s | zone=26.6s
+  Person 108 on screen for 654.8s | zone=652.8s
+  Person 110 on screen for 677.9s | zone=676.6s
+  Person 117 on screen for 1163.3s | zone=4.7s
+  Person 124 on screen for 768.9s | zone=0.3s
+  Person 127 on screen for 90.9s | zone=5.5s
+  Person 130 on screen for 914.3s | zone=0.0s
+  Person 136 on screen for 827.9s | zone=0.1s
+  Person 137 on screen for 13.7s | zone=13.6s
+  Person 141 on screen for 16.2s | zone=16.1s
+  Person 146 on screen for 3.4s | zone=3.5s
+  Person 150 on screen for 2.3s | zone=2.2s
+  Person 157 on screen for 0.9s | zone=0.0s
+  Person 158 on screen for 0.4s | zone=0.3s
+  Person 160 on screen for 76.9s | zone=22.7s
+  Person 161 on screen for 76.7s | zone=17.9s
+  Person 162 on screen for 13.8s | zone=6.5s
+  Person 164 on screen for 71.6s | zone=1.8s
+  Person 166 on screen for 23.7s | zone=0.0s
+  Person 169 on screen for 16.1s | zone=0.3s
+  Person 170 on screen for 16.8s | zone=1.5s
+  Person 175 on screen for 3.0s | zone=0.0s
+  Person 177 on screen for 55.3s | zone=55.2s
+  Person 180 on screen for 84.0s | zone=0.0s
+  Person 181 on screen for 28.2s | zone=0.0s
+  Person 183 on screen for 12.7s | zone=12.7s
+  Person 184 on screen for 95.4s | zone=94.6s
+  Person 185 on screen for 30.6s | zone=0.0s
+  Person 187 on screen for 186.4s | zone=30.7s
+  Person 190 on screen for 7.6s | zone=5.5s
+  Person 191 on screen for 57.4s | zone=0.3s
+  Person 192 on screen for 34.1s | zone=34.2s
+  Person 193 on screen for 74.2s | zone=28.0s
+  Person 199 on screen for 50.4s | zone=0.1s
+Person-ID memory saved: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach5\0320.json
+CSV written: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach5\0320-coach5-20260324-183723.csv
+--- end report ---
+
+[Progress] 2/11 ( 18.2%) | elapsed  1403.4s | ETA  6315.1s
+
+=== Running: Coach-5-hour-2-20260320105959.mp4 ===
