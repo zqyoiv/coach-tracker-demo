@@ -6,7 +6,8 @@ concat-to-hours.ps1 on Windows.
 Layout (e.g. on a Linux VM):
   ~/coach-raw-video/
     3-14/
-      Coach-1/*.mp4   -> 3-14/Coach-1/hourly/Coach-1-hour-1.mp4, ...
+      Coach-1/*.mp4   -> 3-14/Coach-1/hourly/Coach-1-hour-1-20260313105712.mp4
+                        (suffix = first chunk's start timestamp in that hour)
       Coach-2/
       ...
 
@@ -44,6 +45,14 @@ CHUNK_NAME_RE = re.compile(
 )
 
 CHUNKS_PER_HOUR = 12
+
+
+def _chunk_start_ts(p: Path) -> str | None:
+    """First 14-digit start time from a chunk filename, e.g. coach-1-1-20260313105712-....mp4"""
+    m = CHUNK_NAME_RE.match(p.name)
+    if m:
+        return m.group(3)
+    return None
 
 
 def _escape_concat_path(p: Path) -> str:
@@ -135,9 +144,10 @@ def process_coach_folder(
     hour_num = 1
     for i in range(0, len(ordered), CHUNKS_PER_HOUR):
         chunk_paths = ordered[i : i + CHUNKS_PER_HOUR]
-        out_name = f"{coach_label}-hour-{hour_num}.mp4"
+        start_ts = _chunk_start_ts(chunk_paths[0]) or "unknown"
+        out_name = f"{coach_label}-hour-{hour_num}-{start_ts}.mp4"
         out_path = hourly_dir / out_name
-        list_path = hourly_dir / f".concat-hour-{hour_num}.txt"
+        list_path = hourly_dir / f".concat-hour-{hour_num}-{start_ts}.txt"
 
         if dry_run:
             print(f"    [dry-run] hour {hour_num}: {len(chunk_paths)} chunks -> {out_path}")
