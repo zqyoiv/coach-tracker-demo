@@ -6,13 +6,13 @@ On one GPU, many concurrent YOLO runs may OOM or slow down; use --max-parallel 1
 or assign GPUs with --cuda-devices 0,1,2,3.
 
 Examples (from repo root):
-  python _gc-vm/run-coaches-parallel.py --date 3-13 --cameras coach-1 coach-2 coach-3 coach-4 --no-viewer
 
-  python _gc-vm/run-coaches-parallel.py --date 3-13 --video-root "%USERPROFILE%\\coach-raw-video" ^
-    --cameras coach-1 coach-2 coach-3 coach-4 coach-5 --no-viewer --max-parallel 2
+  Windows:
+    python _gc-vm/run-coaches-parallel.py --date 3-13 --video-root "%USERPROFILE%\\coach-raw-video" ...
 
-Linux / VM:
-  python _gc-vm/run-coaches-parallel.py --date 3-13 --video-root ~/coach-raw-video --no-viewer
+  Linux / VM (do NOT use Windows %USERPROFILE% — not expanded; use ~ or $HOME):
+    python _gc-vm/run-coaches-parallel.py --date 3-13 --no-viewer
+    python _gc-vm/run-coaches-parallel.py --date 3-13 --video-root ~/coach-raw-video --no-viewer
 """
 
 from __future__ import annotations
@@ -106,7 +106,29 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    video_root = str(Path(args.video_root).expanduser().resolve())
+    raw_root = args.video_root.strip()
+    if "%" in raw_root and any(
+        x in raw_root.upper() for x in ("USERPROFILE", "HOMEPATH", "LOCALAPPDATA")
+    ):
+        print(
+            "ERROR: You used a Windows-style path (e.g. %USERPROFILE%...).\n"
+            "On Linux that string is NOT expanded and points to the wrong place.\n"
+            "Use one of:\n"
+            f"  --video-root ~/coach-raw-video\n"
+            f"  --video-root {Path.home() / 'coach-raw-video'}\n"
+            "Or omit --video-root (default is ~/coach-raw-video).",
+            file=sys.stderr,
+        )
+        return 2
+
+    video_root = str(Path(raw_root).expanduser().resolve())
+    if not Path(video_root).is_dir():
+        print(
+            f"ERROR: --video-root is not a directory:\n  {video_root}\n"
+            "Fix the path, or create the folder.",
+            file=sys.stderr,
+        )
+        return 2
 
     if not RUNNER.exists():
         print(f"Error: runner not found: {RUNNER}", file=sys.stderr)
