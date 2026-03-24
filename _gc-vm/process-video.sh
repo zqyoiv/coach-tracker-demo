@@ -2,7 +2,7 @@
 
 # 1. 检查是否输入了日期参数
 if [ -z "$1" ]; then
-    echo "❌ Error: Please specify a date (e.g., ./process_date.sh 3-15)"
+    echo "❌ Error: Please specify a date (e.g., ./process-video.sh 3-15)"
     exit 1
 fi
 
@@ -18,10 +18,9 @@ if [ ! -d "$BASE_PATH" ]; then
     exit 1
 fi
 
-# 3. 运行 Python 合并脚本
-# 注意：这里假设你的 Python 脚本会处理指定日期文件夹下的所有 Coach-x
-echo "🎬 Step 1: Merging videos into 1-hour chunks..."
-python3 "$PYTHON_SCRIPT"
+# 3. 运行 Python 合并脚本（只处理 $TARGET_DATE，不会影响其它 3-x 目录）
+echo "🎬 Step 1: Merging videos into 1-hour chunks (date=$TARGET_DATE only)..."
+python3 "$PYTHON_SCRIPT" --root "$HOME/coach-raw-video" --dates "$TARGET_DATE"
 
 if [ $? -ne 0 ]; then
     echo "❌ Error: Python merge script failed. Stopping."
