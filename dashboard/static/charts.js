@@ -215,6 +215,55 @@ function makeCameraBarChart(canvasId, labels, counts, color) {
   });
 }
 
+function makeAvgDwellBarChart(canvasId, labels, values, color) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  return new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "avg dwell (sec)",
+          data: values,
+          backgroundColor: color,
+          borderColor: color,
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      ...baseChartOptions(),
+      plugins: {
+        ...baseChartOptions().plugins,
+        legend: { display: false },
+        tooltip: {
+          ...baseChartOptions().plugins.tooltip,
+          callbacks: {
+            label: (ctx) => ` ${ctx.parsed.y.toFixed(2)} sec`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "rgba(229,231,235,.9)" },
+        },
+        y: {
+          grid: { color: "rgba(255,255,255,.06)" },
+          ticks: { color: "rgba(229,231,235,.9)" },
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: "seconds",
+            color: "rgba(229,231,235,.9)",
+          },
+        },
+      },
+    },
+  });
+}
+
 // Render charts
 const dwellBins = d.dwell_bins || [];
 const dwellAll = d.dwell_all_counts || [];
@@ -223,9 +272,12 @@ const dailyLabels = d.daily_labels || [];
 const dailyCounts = d.daily_counts || [];
 const cameraLabels = d.camera_labels || [];
 const cameraCounts = d.camera_counts || [];
+const avgDwellCameraLabels = d.avg_dwell_camera_labels || [];
+const avgDwellCameraValues = d.avg_dwell_camera_values || [];
 
 makeHorizontalBarChart("dwellAll", dwellBins, dwellAll, "#8B5CF6");
 makeGroupedHorizontalBars("dwellByZone", dwellBins, dwellByZone, ["#8B5CF6", "#22C55E", "#60A5FA", "#F59E0B", "#EF4444", "#14B8A6"]);
 makeLineChart("dailyDist", dailyLabels, dailyCounts);
 makeCameraBarChart("cameraDist", cameraLabels, cameraCounts, "#8B5CF6");
+makeAvgDwellBarChart("avgDwellCamera", avgDwellCameraLabels, avgDwellCameraValues, "#22C55E");
 

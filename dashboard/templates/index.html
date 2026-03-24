@@ -73,6 +73,16 @@
           </div>
         </section>
 
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">Average Dwell Time per Camera</div>
+            <div class="stat-pill">Mean dwell_sec by camera</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="avgDwellCamera"></canvas>
+          </div>
+        </section>
+
         <section class="card wide">
           <div class="card-head">
             <div class="card-title">Daily Distribution</div>
@@ -94,6 +104,8 @@
         daily_counts: {{ data.daily_counts | tojson }},
         camera_labels: {{ data.camera_labels | tojson }},
         camera_counts: {{ data.camera_counts | tojson }},
+        avg_dwell_camera_labels: {{ data.avg_dwell_camera_labels | tojson }},
+        avg_dwell_camera_values: {{ data.avg_dwell_camera_values | tojson }},
         total_events: {{ data.total_events | tojson }},
       };
     </script>

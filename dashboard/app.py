@@ -143,6 +143,8 @@ class DashboardData:
     daily_counts: list[int]
     camera_labels: list[str]
     camera_counts: list[int]
+    avg_dwell_camera_labels: list[str]
+    avg_dwell_camera_values: list[float]
 
 
 def _compute_dashboard(events: list[dict[str, Any]]) -> DashboardData:
@@ -180,13 +182,24 @@ def _compute_dashboard(events: list[dict[str, Any]]) -> DashboardData:
 
     # Camera ID distribution
     cam_counts: dict[str, int] = {}
+    cam_sum_dwell: dict[str, float] = {}
     for e in events:
         cam = str(e["camera_id"])
         cam_counts[cam] = cam_counts.get(cam, 0) + 1
+        cam_sum_dwell[cam] = cam_sum_dwell.get(cam, 0.0) + float(e["dwell_sec"])
     # Sort by count desc, then label
     cam_items = sorted(cam_counts.items(), key=lambda x: (-x[1], x[0]))[:12]
     camera_labels = [k for k, _v in cam_items]
     camera_counts = [v for _k, v in cam_items]
+
+    # Average dwell time per camera (seconds), sorted by avg desc
+    cam_avg_items = []
+    for cam, cnt in cam_counts.items():
+        avg = (cam_sum_dwell.get(cam, 0.0) / cnt) if cnt > 0 else 0.0
+        cam_avg_items.append((cam, avg))
+    cam_avg_items = sorted(cam_avg_items, key=lambda x: (-x[1], x[0]))[:12]
+    avg_dwell_camera_labels = [k for k, _v in cam_avg_items]
+    avg_dwell_camera_values = [round(v, 2) for _k, v in cam_avg_items]
 
     return DashboardData(
         total_events=total_events,
@@ -197,6 +210,8 @@ def _compute_dashboard(events: list[dict[str, Any]]) -> DashboardData:
         daily_counts=daily_counts,
         camera_labels=camera_labels,
         camera_counts=camera_counts,
+        avg_dwell_camera_labels=avg_dwell_camera_labels,
+        avg_dwell_camera_values=avg_dwell_camera_values,
     )
 
 
