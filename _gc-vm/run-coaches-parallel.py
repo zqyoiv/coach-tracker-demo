@@ -5,14 +5,17 @@ Each camera writes to its own coach-store CSV-state / person-ID paths — safe t
 On one GPU, many concurrent YOLO runs may OOM or slow down; use --max-parallel 1 or 2,
 or assign GPUs with --cuda-devices 0,1,2,3.
 
+Use --dates to process several day folders in order (e.g. 3-14, 3-15, 3-16); each day
+runs the same camera pool before moving to the next day.
+
 Examples (from repo root):
 
   Windows:
     python _gc-vm/run-coaches-parallel.py --date 3-13 --video-root "%USERPROFILE%\\coach-raw-video" ...
 
-  Linux / VM (do NOT use Windows %USERPROFILE% — not expanded; use ~ or $HOME):
+  Linux / VM:
     python _gc-vm/run-coaches-parallel.py --date 3-13 --no-viewer
-    python _gc-vm/run-coaches-parallel.py --date 3-13 --video-root ~/coach-raw-video --no-viewer
+    python _gc-vm/run-coaches-parallel.py --dates 3-14 3-15 3-16 --no-viewer --max-parallel 2
 """
 
 from __future__ import annotations
@@ -61,11 +64,117 @@ def _build_runner_cmd(
     return cmd
 
 
+def run_parallel_for_date(
+    date_str: str,
+    *,
+    video_root: str,
+    cameras: list[str],
+    drive_mount_root: str,
+    no_viewer: bool,
+    stop_on_error: bool,
+    max_parallel: int,
+    cuda_list: list[str | None] | None,
+    log_dir: Path,
+) -> int:
+    """Run all cameras for one date. Returns 0 if all OK, 1 if any failed."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    pending = list(enumerate(cameras))
+    running: list[tuple[int, str, subprocess.Popen, object]] = []
+    results: dict[int, tuple[str, int | None]] = {}
+
+    def start_next() -> bool:
+        nonlocal pending
+        if not pending:
+            return False
+        idx, camera = pending.pop(0)
+        env = os.environ.copy()
+        if cuda_list is not None and cuda_list[idx] is not None:
+            env["CUDA_VISIBLE_DEVICES"] = cuda_list[idx]
+
+        cmd = _build_runner_cmd(
+            video_root=video_root,
+            drive_mount_root=drive_mount_root,
+            date=date_str,
+            camera=camera,
+            no_viewer=no_viewer,
+            stop_on_error=stop_on_error,
+        )
+
+        log_path = log_dir / f"{camera.replace(' ', '_')}.log"
+        log_f = open(log_path, "w", encoding="utf-8", newline="\n")
+        log_f.write(f"# date={date_str}\n# cmd: {' '.join(cmd)}\n# cwd: {PROJECT_ROOT}\n\n")
+        log_f.flush()
+
+        print(f"[launch] {date_str} {camera} -> log: {log_path}")
+        p = subprocess.Popen(
+            cmd,
+            cwd=str(PROJECT_ROOT),
+            env=env,
+            stdout=log_f,
+            stderr=subprocess.STDOUT,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+        )
+        running.append((idx, camera, p, log_f))
+        return True
+
+    def refill() -> None:
+        while len(running) < max_parallel and pending:
+            start_next()
+
+    refill()
+
+    while running or pending:
+        if not running and pending:
+            refill()
+        if not running and not pending:
+            break
+        time.sleep(0.25)
+        still: list[tuple[int, str, subprocess.Popen, object]] = []
+        for idx, camera, p, log_f in running:
+            rc = p.poll()
+            if rc is None:
+                still.append((idx, camera, p, log_f))
+                continue
+            try:
+                log_f.close()
+            except Exception:
+                pass
+            results[idx] = (camera, rc)
+            print(f"[done] {date_str} {camera} exit={rc}")
+        running = still
+        refill()
+
+    print(f"\n--- Summary for {date_str} ---")
+    failed = 0
+    for i in range(len(cameras)):
+        cam, rc = results[i]
+        ok = rc == 0
+        if not ok:
+            failed += 1
+        status = "OK" if ok else "FAIL"
+        print(f"  {cam}: {status} (exit {rc})")
+    print(f"Logs: {log_dir}\n")
+
+    return 1 if failed else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run coach-date-camera-id-runner.py for several cameras in parallel."
     )
-    parser.add_argument("--date", required=True, help="Date folder (e.g. 3-13).")
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="Single date folder (e.g. 3-13). Ignored if --dates is set.",
+    )
+    parser.add_argument(
+        "--dates",
+        nargs="+",
+        default=None,
+        metavar="M-D",
+        help="Multiple date folders, processed in order (e.g. 3-14 3-15 3-16). Overrides --date.",
+    )
     parser.add_argument(
         "--cameras",
         nargs="+",
@@ -102,9 +211,16 @@ def main() -> int:
     parser.add_argument(
         "--log-dir",
         default=None,
-        help="Per-camera logs (default: coach-store/parallel-run-logs/<timestamp>).",
+        help="Base log directory (default: coach-store/parallel-run-logs/<timestamp>/<date>/).",
     )
     args = parser.parse_args()
+
+    if args.dates:
+        date_list = list(args.dates)
+    elif args.date:
+        date_list = [args.date]
+    else:
+        parser.error("Pass --date once or --dates with one or more folders (e.g. --dates 3-14 3-15 3-16).")
 
     raw_root = args.video_root.strip()
     if "%" in raw_root and any(
@@ -153,91 +269,35 @@ def main() -> int:
         return 2
 
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    log_dir = (
+    log_base = (
         Path(args.log_dir)
         if args.log_dir
         else PROJECT_ROOT / "coach-store" / "parallel-run-logs" / stamp
     )
-    log_dir.mkdir(parents=True, exist_ok=True)
 
-    pending = list(enumerate(cameras))
-    running: list[tuple[int, str, subprocess.Popen, object]] = []
-    results: dict[int, tuple[str, int | None]] = {}
-
-    def start_next() -> bool:
-        nonlocal pending
-        if not pending:
-            return False
-        idx, camera = pending.pop(0)
-        env = os.environ.copy()
-        if cuda_list is not None and cuda_list[idx] is not None:
-            env["CUDA_VISIBLE_DEVICES"] = cuda_list[idx]
-
-        cmd = _build_runner_cmd(
+    any_fail = False
+    for d in date_list:
+        # Safe subfolder name (e.g. 3/13 -> 3-13 if user passed wrong; keep as-is for 3-14)
+        sub = d.replace("/", "-").strip()
+        log_dir = log_base / sub
+        print(f"\n{'=' * 60}\n  DATE {sub}  ({len(date_list)} day(s) total)\n{'=' * 60}")
+        rc = run_parallel_for_date(
+            sub,
             video_root=video_root,
+            cameras=cameras,
             drive_mount_root=args.drive_mount_root,
-            date=args.date,
-            camera=camera,
             no_viewer=args.no_viewer,
             stop_on_error=args.stop_on_error,
+            max_parallel=max_parallel,
+            cuda_list=cuda_list,
+            log_dir=log_dir,
         )
+        if rc != 0:
+            any_fail = True
 
-        log_path = log_dir / f"{camera.replace(' ', '_')}.log"
-        log_f = open(log_path, "w", encoding="utf-8", newline="\n")
-        log_f.write(f"# cmd: {' '.join(cmd)}\n# cwd: {PROJECT_ROOT}\n\n")
-        log_f.flush()
-
-        print(f"[launch] {camera} -> log: {log_path}")
-        p = subprocess.Popen(
-            cmd,
-            cwd=str(PROJECT_ROOT),
-            env=env,
-            stdout=log_f,
-            stderr=subprocess.STDOUT,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
-        )
-        running.append((idx, camera, p, log_f))
-        return True
-
-    def refill() -> None:
-        while len(running) < max_parallel and pending:
-            start_next()
-
-    refill()
-
-    while running or pending:
-        if not running and pending:
-            refill()
-        if not running and not pending:
-            break
-        time.sleep(0.25)
-        still: list[tuple[int, str, subprocess.Popen, object]] = []
-        for idx, camera, p, log_f in running:
-            rc = p.poll()
-            if rc is None:
-                still.append((idx, camera, p, log_f))
-                continue
-            try:
-                log_f.close()
-            except Exception:
-                pass
-            results[idx] = (camera, rc)
-            print(f"[done] {camera} exit={rc}")
-        running = still
-        refill()
-
-    print("\n--- Summary ---")
-    failed = 0
-    for i in range(len(cameras)):
-        cam, rc = results[i]
-        ok = rc == 0
-        if not ok:
-            failed += 1
-        status = "OK" if ok else "FAIL"
-        print(f"  {cam}: {status} (exit {rc})")
-    print(f"Logs: {log_dir}")
-
-    return 1 if failed else 0
+    if len(date_list) > 1:
+        print(f"\nAll dates finished. Log base: {log_base}")
+    return 1 if any_fail else 0
 
 
 if __name__ == "__main__":
