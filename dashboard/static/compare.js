@@ -1,4 +1,4 @@
-const c = window.compareData || {};
+const byCamera = window.compareByCamera || {};
 const labels = window.compareLabels || { primary: "Primary", baseline: "Baseline" };
 
 const PURPLE = "#8B5CF6";
@@ -35,10 +35,9 @@ function baseOpts() {
   };
 }
 
-function renderCompare(canvasId, halfKey) {
+function renderCompare(canvasId, block) {
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
-  const block = c[halfKey];
   if (!block) return;
 
   const p = block.primary || {};
@@ -90,5 +89,19 @@ function renderCompare(canvasId, halfKey) {
   });
 }
 
-renderCompare("compareAm", "am");
-renderCompare("comparePm", "pm");
+function renderAllCameras() {
+  const keys = Object.keys(byCamera);
+  const camNums = keys
+    .map((k) => parseInt(k, 10))
+    .filter((n) => !Number.isNaN(n))
+    .sort((a, b) => a - b);
+
+  for (const n of camNums) {
+    const cam = byCamera[n] || byCamera[String(n)];
+    if (!cam) continue;
+    renderCompare(`compareAm-${n}`, cam.am);
+    renderCompare(`comparePm-${n}`, cam.pm);
+  }
+}
+
+renderAllCameras();

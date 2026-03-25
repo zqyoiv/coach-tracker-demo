@@ -216,6 +216,9 @@ canvas{
 }
 .compare-sources{
   margin-bottom:14px;
+  /* Make the collapsed CSV-sources card thin (global .card has min-height:360px) */
+  min-height:auto;
+  padding:0;
 }
 .compare-sources-lead{
   font-size:13px;
@@ -287,4 +290,70 @@ canvas{
 .lg-p{ color: var(--purple); }
 .lg-o{ color: var(--orange); }
 .lg-b{ color: var(--blue); }
+
+.compare-sources-details{
+  margin-top:0;
+}
+.compare-sources-summary{
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  padding:10px 14px;
+}
+.compare-sources-summary-num{
+  color:rgba(229,231,235,.95);
+}
+
+.compare-sources-expanded{
+  margin-top:0;
+  border-top:1px solid rgba(255,255,255,.08);
+  padding:12px 14px 10px;
+}
+.compare-source-block{
+  padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.compare-source-block:last-child{
+  border-bottom:none;
+}
+.compare-source-head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:baseline;
+  margin-bottom:8px;
+}
+.compare-source-title{
+  font-weight:700;
+}
+.compare-source-meta{
+  color:var(--muted);
+  font-size:12px;
+}
+.compare-source-col{
+  margin-top:8px;
+}
+.compare-source-sub{
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
+}
+
+.compare-all-cameras{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.compare-camera-card .chart-wrap-tall{
+  height:310px;
+}
+.compare-camera-card .compare-split{
+  gap:12px;
+}
+.compare-half-card{
+  min-width:0;
+}
 

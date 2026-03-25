@@ -351,88 +351,78 @@ def _zone_label_from_events(events: list[dict[str, Any]]) -> str:
 @app.get("/compare")
 def compare_get():
     d1 = request.args.get("d1", "3-13").strip()
-    c1 = _normalize_coach_select(request.args.get("c1", "coach-1"))
     d2 = request.args.get("d2", "3-20").strip()
-    c2 = _normalize_coach_select(request.args.get("c2", "coach-1"))
 
     err: str | None = None
     pd1 = _parse_md_date(d1)
     pd2 = _parse_md_date(d2)
-    n1 = _parse_coach_num(c1)
-    n2 = _parse_coach_num(c2)
 
     compare_payload: dict[str, Any] = {
-        "zone_title": "Zone",
-        "primary_label": f"{d1} {c1}",
-        "baseline_label": f"{d2} {c2}",
-        "am": {
-            "primary": {"avg_dwell": 0, "total_dwell_hr": 0, "customers": 0},
-            "baseline": {"avg_dwell": 0, "total_dwell_hr": 0, "customers": 0},
-        },
-        "pm": {
-            "primary": {"avg_dwell": 0, "total_dwell_hr": 0, "customers": 0},
-            "baseline": {"avg_dwell": 0, "total_dwell_hr": 0, "customers": 0},
-        },
-        "primary_events": 0,
-        "baseline_events": 0,
-        "scanned_csvs": [],
-        "primary_csvs": [],
-        "baseline_csvs": [],
+        "primary_label": d1,
+        "baseline_label": d2,
+        "by_camera": {},
+        "sources_unique_csvs": [],
+        "sources_unique_csv_count": 0,
     }
 
     if not pd1 or not pd2:
         err = "Invalid date format. Use M-D (e.g. 3-13)."
-    elif not n1 or not n2:
-        err = "Invalid camera. Use coach-1 .. coach-5."
-    elif n1 != n2:
-        err = "Cameras must match for an apples-to-apples compare (e.g. coach-1 vs coach-1)."
     else:
-        coach_key = f"coach{n1}"
-        all_events, scanned_csvs = _load_events_from_dashboard_csv_for_coach(n1)
-        compare_payload["scanned_csvs"] = scanned_csvs
-        ev1 = _filter_events_date_camera(all_events, pd1[0], pd1[1], coach_key)
-        ev2 = _filter_events_date_camera(all_events, pd2[0], pd2[1], coach_key)
-        compare_payload["primary_csvs"] = sorted(
-            {str(e.get("source_csv")) for e in ev1 if e.get("source_csv")}
-        )
-        compare_payload["baseline_csvs"] = sorted(
-            {str(e.get("source_csv")) for e in ev2 if e.get("source_csv")}
-        )
-        ev1_am, ev1_pm = _split_am_pm(ev1)
-        ev2_am, ev2_pm = _split_am_pm(ev2)
+        primary_month, primary_day = pd1
+        baseline_month, baseline_day = pd2
 
-        compare_payload["zone_title"] = _zone_label_from_events(ev1 + ev2)
-        compare_payload["primary_events"] = len(ev1)
-        compare_payload["baseline_events"] = len(ev2)
-
-        def pack(m1: dict[str, float], m2: dict[str, float]) -> dict[str, Any]:
+        def pack(m_primary: dict[str, float], m_baseline: dict[str, float]) -> dict[str, Any]:
             return {
                 "primary": {
-                    "avg_dwell": m1["avg_dwell"],
-                    "total_dwell_hr": round(m1["total_dwell_sec"] / 3600.0, 2),
-                    "customers": int(m1["unique_customers"]),
+                    "avg_dwell": m_primary["avg_dwell"],
+                    "total_dwell_hr": round(m_primary["total_dwell_sec"] / 3600.0, 2),
+                    "customers": int(m_primary["unique_customers"]),
                 },
                 "baseline": {
-                    "avg_dwell": m2["avg_dwell"],
-                    "total_dwell_hr": round(m2["total_dwell_sec"] / 3600.0, 2),
-                    "customers": int(m2["unique_customers"]),
+                    "avg_dwell": m_baseline["avg_dwell"],
+                    "total_dwell_hr": round(m_baseline["total_dwell_sec"] / 3600.0, 2),
+                    "customers": int(m_baseline["unique_customers"]),
                 },
             }
 
-        m1_am = _metrics_window(ev1_am)
-        m2_am = _metrics_window(ev2_am)
-        m1_pm = _metrics_window(ev1_pm)
-        m2_pm = _metrics_window(ev2_pm)
-        compare_payload["am"] = pack(m1_am, m2_am)
-        compare_payload["pm"] = pack(m1_pm, m2_pm)
+        sources_set: set[str] = set()
+        for coach_num in range(1, 6):
+            coach_key = f"coach{coach_num}"
+            all_events, scanned_csvs = _load_events_from_dashboard_csv_for_coach(coach_num)
+
+            ev_primary = _filter_events_date_camera(all_events, primary_month, primary_day, coach_key)
+            ev_baseline = _filter_events_date_camera(
+                all_events, baseline_month, baseline_day, coach_key
+            )
+
+            ev_primary_am, ev_primary_pm = _split_am_pm(ev_primary)
+            ev_baseline_am, ev_baseline_pm = _split_am_pm(ev_baseline)
+
+            primary_csvs = sorted({str(e.get("source_csv")) for e in ev_primary if e.get("source_csv")})
+            baseline_csvs = sorted({str(e.get("source_csv")) for e in ev_baseline if e.get("source_csv")})
+
+            compare_payload["by_camera"][coach_num] = {
+                "label": f"coach-{coach_num}",
+                "zone_title": _zone_label_from_events(ev_primary + ev_baseline),
+                "primary_events": len(ev_primary),
+                "baseline_events": len(ev_baseline),
+                "scanned_csvs": scanned_csvs,
+                "primary_csvs": primary_csvs,
+                "baseline_csvs": baseline_csvs,
+                "am": pack(_metrics_window(ev_primary_am), _metrics_window(ev_baseline_am)),
+                "pm": pack(_metrics_window(ev_primary_pm), _metrics_window(ev_baseline_pm)),
+            }
+
+            sources_set.update(scanned_csvs)
+
+        compare_payload["sources_unique_csvs"] = sorted(sources_set)
+        compare_payload["sources_unique_csv_count"] = len(sources_set)
 
     return render_template(
         "compare.html",
         active_tab="compare",
         d1=d1,
-        c1=c1,
         d2=d2,
-        c2=c2,
         err=err,
         compare=compare_payload,
     )
