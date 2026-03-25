@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import io
 import os
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -251,6 +252,192 @@ def _csv_rows_for_template(paths: list[str]) -> list[dict[str, str]]:
     return [{"rel": r, "label": _short_csv_label(r)} for r in paths]
 
 
+def _parse_md_date(text: str) -> tuple[int, int] | None:
+    """Parse '3-13' or '03-13' -> (month, day)."""
+    text = text.strip()
+    m = re.match(r"^(\d{1,2})[-/](\d{1,2})$", text)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
+
+
+def _parse_coach_num(camera: str) -> int | None:
+    m = re.search(r"coach[-_]?([1-5])", camera.strip().lower())
+    return int(m.group(1)) if m else None
+
+
+def _normalize_coach_select(camera: str) -> str:
+    m = re.search(r"coach[-_]?([1-5])", camera.strip().lower())
+    return f"coach-{m.group(1)}" if m else "coach-1"
+
+
+def _normalize_camera_key(camera_id: str) -> str:
+    m = re.search(r"coach[-_]?([1-5])", str(camera_id).lower())
+    return f"coach{m.group(1)}" if m else str(camera_id).strip().lower()
+
+
+def _load_events_from_dashboard_csv_for_coach(
+    coach_num: int,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """All dashboard/csv/**/*.csv whose filename identifies this coach (e.g. *-coach3-*)."""
+    root = PROJECT_ROOT / "dashboard" / "csv"
+    if not root.is_dir():
+        return [], []
+    out: list[dict[str, Any]] = []
+    scanned: list[str] = []
+    for p in sorted(root.rglob("*.csv")):
+        if not p.is_file():
+            continue
+        n = _parse_coach_num(p.name)
+        if n != coach_num:
+            continue
+        rel = str(p.relative_to(PROJECT_ROOT)).replace("\\", "/")
+        scanned.append(rel)
+        for e in _events_from_any_csv(p):
+            e["source_csv"] = rel
+            out.append(e)
+    return out, scanned
+
+
+def _filter_events_date_camera(
+    events: list[dict[str, Any]],
+    month: int,
+    day: int,
+    coach_key: str,
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for e in events:
+        dt = e["dt"]
+        if dt.month != month or dt.day != day:
+            continue
+        if _normalize_camera_key(str(e.get("camera_id", ""))) != coach_key:
+            continue
+        out.append(e)
+    return out
+
+
+def _split_am_pm(events: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    am = [e for e in events if e["dt"].hour < 12]
+    pm = [e for e in events if e["dt"].hour >= 12]
+    return am, pm
+
+
+def _metrics_window(events: list[dict[str, Any]]) -> dict[str, float]:
+    if not events:
+        return {"avg_dwell": 0.0, "total_dwell_sec": 0.0, "unique_customers": 0.0}
+    dwells = [float(e["dwell_sec"]) for e in events]
+    total = sum(dwells)
+    avg = total / len(events)
+    persons = {e["person_id"] for e in events if e.get("person_id") is not None}
+    return {
+        "avg_dwell": round(avg, 2),
+        "total_dwell_sec": round(total, 2),
+        "unique_customers": float(len(persons)),
+    }
+
+
+def _zone_label_from_events(events: list[dict[str, Any]]) -> str:
+    if not events:
+        return "Zone"
+    # most common zone_id
+    counts: dict[str, int] = {}
+    for e in events:
+        z = str(e.get("zone_id") or "").strip() or "unknown"
+        counts[z] = counts.get(z, 0) + 1
+    best = sorted(counts.items(), key=lambda x: (-x[1], x[0]))[0][0]
+    return best
+
+
+@app.get("/compare")
+def compare_get():
+    d1 = request.args.get("d1", "3-13").strip()
+    c1 = _normalize_coach_select(request.args.get("c1", "coach-1"))
+    d2 = request.args.get("d2", "3-20").strip()
+    c2 = _normalize_coach_select(request.args.get("c2", "coach-1"))
+
+    err: str | None = None
+    pd1 = _parse_md_date(d1)
+    pd2 = _parse_md_date(d2)
+    n1 = _parse_coach_num(c1)
+    n2 = _parse_coach_num(c2)
+
+    compare_payload: dict[str, Any] = {
+        "zone_title": "Zone",
+        "primary_label": f"{d1} {c1}",
+        "baseline_label": f"{d2} {c2}",
+        "am": {
+            "primary": {"avg_dwell": 0, "total_dwell_hr": 0, "customers": 0},
+            "baseline": {"avg_dwell": 0, "total_dwell_hr": 0, "customers": 0},
+        },
+        "pm": {
+            "primary": {"avg_dwell": 0, "total_dwell_hr": 0, "customers": 0},
+            "baseline": {"avg_dwell": 0, "total_dwell_hr": 0, "customers": 0},
+        },
+        "primary_events": 0,
+        "baseline_events": 0,
+        "scanned_csvs": [],
+        "primary_csvs": [],
+        "baseline_csvs": [],
+    }
+
+    if not pd1 or not pd2:
+        err = "Invalid date format. Use M-D (e.g. 3-13)."
+    elif not n1 or not n2:
+        err = "Invalid camera. Use coach-1 .. coach-5."
+    elif n1 != n2:
+        err = "Cameras must match for an apples-to-apples compare (e.g. coach-1 vs coach-1)."
+    else:
+        coach_key = f"coach{n1}"
+        all_events, scanned_csvs = _load_events_from_dashboard_csv_for_coach(n1)
+        compare_payload["scanned_csvs"] = scanned_csvs
+        ev1 = _filter_events_date_camera(all_events, pd1[0], pd1[1], coach_key)
+        ev2 = _filter_events_date_camera(all_events, pd2[0], pd2[1], coach_key)
+        compare_payload["primary_csvs"] = sorted(
+            {str(e.get("source_csv")) for e in ev1 if e.get("source_csv")}
+        )
+        compare_payload["baseline_csvs"] = sorted(
+            {str(e.get("source_csv")) for e in ev2 if e.get("source_csv")}
+        )
+        ev1_am, ev1_pm = _split_am_pm(ev1)
+        ev2_am, ev2_pm = _split_am_pm(ev2)
+
+        compare_payload["zone_title"] = _zone_label_from_events(ev1 + ev2)
+        compare_payload["primary_events"] = len(ev1)
+        compare_payload["baseline_events"] = len(ev2)
+
+        def pack(m1: dict[str, float], m2: dict[str, float]) -> dict[str, Any]:
+            return {
+                "primary": {
+                    "avg_dwell": m1["avg_dwell"],
+                    "total_dwell_hr": round(m1["total_dwell_sec"] / 3600.0, 2),
+                    "customers": int(m1["unique_customers"]),
+                },
+                "baseline": {
+                    "avg_dwell": m2["avg_dwell"],
+                    "total_dwell_hr": round(m2["total_dwell_sec"] / 3600.0, 2),
+                    "customers": int(m2["unique_customers"]),
+                },
+            }
+
+        m1_am = _metrics_window(ev1_am)
+        m2_am = _metrics_window(ev2_am)
+        m1_pm = _metrics_window(ev1_pm)
+        m2_pm = _metrics_window(ev2_pm)
+        compare_payload["am"] = pack(m1_am, m2_am)
+        compare_payload["pm"] = pack(m1_pm, m2_pm)
+
+    return render_template(
+        "compare.html",
+        active_tab="compare",
+        d1=d1,
+        c1=c1,
+        d2=d2,
+        c2=c2,
+        err=err,
+        compare=compare_payload,
+    )
+
+
 @app.get("/")
 def index_get():
     csv_files = _list_available_csvs()
@@ -287,6 +474,7 @@ def index_get():
     data = _compute_dashboard(events)
     return render_template(
         "index.html",
+        active_tab="overview",
         csv_rows=csv_rows,
         hide_csv_list=hide_csv_list,
         selected_files=selected_files,
@@ -316,6 +504,7 @@ def upload_post():
     csv_rows = _csv_rows_for_template(all_csv)
     return render_template(
         "index.html",
+        active_tab="overview",
         csv_rows=csv_rows,
         hide_csv_list=False,
         selected_files=[],

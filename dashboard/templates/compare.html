@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Compare — demo dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar topbar-compare">
+        <div class="brand">
+          <div class="logo">📊</div>
+          <div>
+            <div class="title">demo dashboard</div>
+            <div class="subtitle">Compare two days for the same camera (dashboard/csv)</div>
+          </div>
+        </div>
+        {% include "partials/nav_tabs.html" %}
+      </header>
+
+      <section class="compare-controls card wide">
+        <form class="compare-form" method="get" action="{{ url_for('compare_get') }}">
+          <div class="compare-form-row">
+            <span class="compare-form-label">Primary</span>
+            <input class="select compare-input" type="text" name="d1" value="{{ d1 }}" placeholder="3-13" title="Month-Day" />
+            <select class="select compare-input" name="c1">
+              {% for n in range(1, 6) %}
+                <option value="coach-{{ n }}" {% if c1 == 'coach-' ~ n %}selected{% endif %}>coach-{{ n }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="compare-form-row">
+            <span class="compare-form-label">Baseline</span>
+            <input class="select compare-input" type="text" name="d2" value="{{ d2 }}" placeholder="3-20" />
+            <select class="select compare-input" name="c2">
+              {% for n in range(1, 6) %}
+                <option value="coach-{{ n }}" {% if c2 == 'coach-' ~ n %}selected{% endif %}>coach-{{ n }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn">Update</button>
+        </form>
+        <p class="compare-hint">
+          Reads all <code>dashboard/csv/**/*.csv</code> files whose name includes that camera (e.g. <code>*-coach3-*</code>), then filters rows by event date + camera.
+          AM = hour &lt; 12, PM = hour ≥ 12. Unique customers = distinct <code>person_id</code> in that half-day.
+        </p>
+        {% if err %}
+          <p class="compare-error">{{ err }}</p>
+        {% endif %}
+      </section>
+
+      {% if not err %}
+      <section class="compare-sources card wide">
+        <div class="card-head">
+          <div class="card-title">CSV sources</div>
+        </div>
+        <p class="compare-sources-lead">
+          Files loaded for <strong>{{ c1 }}</strong> (filename matches that camera). Metrics use rows whose timestamp matches each day below.
+        </p>
+        <ul class="compare-sources-list">
+          {% for path in compare.scanned_csvs %}
+            <li><code class="compare-source-path" title="{{ path }}">{{ path }}</code></li>
+          {% else %}
+            <li class="compare-sources-empty">No matching <code>*.csv</code> under <code>dashboard/csv/</code> for this camera.</li>
+          {% endfor %}
+        </ul>
+        <div class="compare-sources-split">
+          <div class="compare-sources-col">
+            <div class="compare-sources-sub">Primary — {{ d1 }} ({{ compare.primary_events }} events)</div>
+            <ul class="compare-sources-list compare-sources-list-tight">
+              {% for path in compare.primary_csvs %}
+                <li><code class="compare-source-path" title="{{ path }}">{{ path }}</code></li>
+              {% else %}
+                <li class="compare-sources-empty">No rows matched this date.</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="compare-sources-col">
+            <div class="compare-sources-sub">Baseline — {{ d2 }} ({{ compare.baseline_events }} events)</div>
+            <ul class="compare-sources-list compare-sources-list-tight">
+              {% for path in compare.baseline_csvs %}
+                <li><code class="compare-source-path" title="{{ path }}">{{ path }}</code></li>
+              {% else %}
+                <li class="compare-sources-empty">No rows matched this date.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="compare-title card wide">
+        <div class="card-head">
+          <div class="card-title">Zone: {{ compare.zone_title }}</div>
+          <div class="stat-pill">
+            Events — primary: <span class="stat-num">{{ compare.primary_events }}</span> · baseline:
+            <span class="stat-num">{{ compare.baseline_events }}</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="compare-split">
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">AM (midnight–11:59)</div>
+            <div class="stat-pill compare-legend">
+              <span class="lg lg-p">avg</span>
+              <span class="lg lg-o">total hr</span>
+              <span class="lg lg-b">customers</span>
+            </div>
+          </div>
+          <div class="chart-wrap chart-wrap-tall">
+            <canvas id="compareAm"></canvas>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-head">
+            <div class="card-title">PM (noon–23:59)</div>
+            <div class="stat-pill compare-legend">
+              <span class="lg lg-p">avg</span>
+              <span class="lg lg-o">total hr</span>
+              <span class="lg lg-b">customers</span>
+            </div>
+          </div>
+          <div class="chart-wrap chart-wrap-tall">
+            <canvas id="comparePm"></canvas>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      window.compareData = {{ compare | tojson }};
+      window.compareLabels = {
+        primary: {{ compare.primary_label | tojson }},
+        baseline: {{ compare.baseline_label | tojson }},
+      };
+    </script>
+    <script src="{{ url_for('static', filename='compare.js') }}"></script>
+  </body>
+</html>

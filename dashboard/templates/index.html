@@ -18,6 +18,8 @@
           </div>
         </div>
 
+        {% include "partials/nav_tabs.html" %}
+
         <form class="load-form" method="get" action="/" id="csv-select-form">
           <label class="label" for="files">CSV(s)</label>
           <select class="select" id="files" name="files" multiple size="6" {% if hide_csv_list %}disabled{% endif %}>

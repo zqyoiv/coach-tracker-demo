@@ -147,3 +147,144 @@ canvas{
   height:100% !important;
 }
 
+.nav-tabs{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.nav-tab{
+  padding:8px 12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  color:var(--muted);
+  text-decoration:none;
+  font-size:13px;
+  font-weight:600;
+}
+.nav-tab:hover{
+  color:var(--text);
+  border-color:rgba(255,255,255,.18);
+}
+.nav-tab-active{
+  color:var(--text);
+  border-color:rgba(139,92,246,.45);
+  background:rgba(139,92,246,.15);
+}
+
+.topbar-compare{
+  align-items:flex-start;
+}
+
+.compare-controls{
+  margin-bottom:14px;
+  min-height:auto;
+}
+.compare-form{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  align-items:flex-end;
+}
+.compare-form-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+.compare-form-label{
+  font-size:12px;
+  color:var(--muted);
+  min-width:64px;
+}
+.compare-input{
+  min-width:72px;
+}
+.compare-hint{
+  font-size:12px;
+  color:var(--muted);
+  margin:12px 0 0;
+  line-height:1.45;
+}
+.compare-hint code{
+  font-size:11px;
+  color:rgba(229,231,235,.85);
+}
+.compare-error{
+  color:#fecaca;
+  margin-top:12px;
+  font-size:13px;
+}
+.compare-sources{
+  margin-bottom:14px;
+}
+.compare-sources-lead{
+  font-size:13px;
+  color:var(--muted);
+  margin:0 0 10px;
+  line-height:1.45;
+}
+.compare-sources-sub{
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
+}
+.compare-sources-list{
+  margin:0;
+  padding-left:1.15rem;
+  font-size:12px;
+  line-height:1.5;
+}
+.compare-sources-list-tight{
+  margin-top:4px;
+}
+.compare-source-path{
+  font-size:11px;
+  word-break:break-all;
+}
+.compare-sources-empty{
+  color:var(--muted);
+  font-size:12px;
+  list-style:none;
+  margin-left:-1.15rem;
+}
+.compare-sources-split{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:16px;
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid rgba(255,255,255,.08);
+}
+.compare-sources-col{
+  min-width:0;
+}
+@media (max-width: 900px){
+  .compare-sources-split{
+    grid-template-columns: 1fr;
+  }
+}
+.compare-title{
+  min-height:auto;
+  margin-bottom:14px;
+}
+.compare-split{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+}
+@media (max-width: 900px){
+  .compare-split{
+    grid-template-columns: 1fr;
+  }
+}
+.chart-wrap-tall{
+  height:380px;
+}
+.compare-legend .lg{
+  font-size:11px;
+  margin-left:8px;
+}
+.lg-p{ color: var(--purple); }
+.lg-o{ color: var(--orange); }
+.lg-b{ color: var(--blue); }
+
