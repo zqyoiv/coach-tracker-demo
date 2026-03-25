@@ -1,0 +1,38 @@
+# date=3-13
+# cmd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\venv\Scripts\python.exe -u C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\video-script\coach-date-camera-id-runner.py --date 3-13 --camera coach-3 --video-root C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video --drive-mount-root /content/drive --no-viewer
+# cwd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo
+
+Combined CSV output: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach3\0313-coach3-20260324-225329.csv
+Found 13 video(s) in C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-3
+001. Coach-3-hour-1-20260313090203.mp4
+002. Coach-3-hour-2-20260313100203.mp4
+003. Coach-3-hour-3-20260313110203.mp4
+004. Coach-3-hour-4-20260313115835.mp4
+005. Coach-3-hour-5-20260313123836.mp4
+006. Coach-3-hour-6-20260313132340.mp4
+007. Coach-3-hour-7-20260313142341.mp4
+008. Coach-3-hour-8-20260313152405.mp4
+009. Coach-3-hour-9-20260313162413.mp4
+010. Coach-3-hour-10-20260313171929.mp4
+011. Coach-3-hour-11-20260313181945.mp4
+012. Coach-3-hour-12-20260313192016.mp4
+013. Coach-3-hour-13-20260313202025.mp4
+
+[Progress] 1/13 (  7.7%) | elapsed     0.0s | ETA     0.0s
+
+=== Running: Coach-3-hour-1-20260313090203.mp4 ===
+Person-ID memory: loaded 0 IDs from C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach3\0313.json
+[coach3] C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-3\Coach-3-hour-1-20260313090203.mp4 (36000 frames @ 10.0 fps). (headless)
+Config: yaml=coach3.yaml zone=C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\zone\coach3.json
+Output CSV: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach3\0313-coach3-20260324-225329.csv
+
+--- Report ---
+Time spent processing: 1154.8s
+Time on screen per person:
+Person-ID memory saved: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach3\0313.json
+CSV written: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach3\0313-coach3-20260324-225329.csv
+--- end report ---
+
+[Progress] 2/13 ( 15.4%) | elapsed  1158.5s | ETA  6371.9s
+
+=== Running: Coach-3-hour-2-20260313100203.mp4 ===

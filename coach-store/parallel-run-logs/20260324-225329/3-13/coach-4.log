@@ -1,0 +1,57 @@
+# date=3-13
+# cmd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\venv\Scripts\python.exe -u C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\video-script\coach-date-camera-id-runner.py --date 3-13 --camera coach-4 --video-root C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video --drive-mount-root /content/drive --no-viewer
+# cwd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo
+
+Combined CSV output: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0313-coach4-20260324-225329.csv
+Found 14 video(s) in C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-4
+001. Coach-4-hour-1-20260313090002.mp4
+002. Coach-4-hour-2-20260313100006.mp4
+003. Coach-4-hour-3-20260313110006.mp4
+004. Coach-4-hour-4-20260313115456.mp4
+005. Coach-4-hour-5-20260313122453.mp4
+006. Coach-4-hour-6-20260313125500.mp4
+007. Coach-4-hour-7-20260313135500.mp4
+008. Coach-4-hour-8-20260313145500.mp4
+009. Coach-4-hour-9-20260313155500.mp4
+010. Coach-4-hour-10-20260313165500.mp4
+011. Coach-4-hour-11-20260313175000.mp4
+012. Coach-4-hour-12-20260313185000.mp4
+013. Coach-4-hour-13-20260313195000.mp4
+014. Coach-4-hour-14-20260313205000.mp4
+
+[Progress] 1/14 (  7.1%) | elapsed     0.0s | ETA     0.0s
+
+=== Running: Coach-4-hour-1-20260313090002.mp4 ===
+Person-ID memory: loaded 0 IDs from C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach4\0313.json
+[coach4] C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-4\Coach-4-hour-1-20260313090002.mp4 (34257 frames @ 10.0 fps). (headless)
+Config: yaml=coach4.yaml zone=C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\zone\coach4.json
+Output CSV: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0313-coach4-20260324-225329.csv
+
+--- Report ---
+Time spent processing: 1131.9s
+Time on screen per person:
+  Person 0 on screen for 3422.7s | zone=0.0s
+  Person 1 on screen for 3361.1s | zone=2.6s
+  Person 2 on screen for 3422.6s | zone=0.0s
+  Person 3 on screen for 3251.8s | zone=0.0s
+  Person 4 on screen for 3285.5s | zone=0.0s
+  Person 5 on screen for 2408.1s | zone=0.0s
+  Person 6 on screen for 0.2s | zone=0.0s
+  Person 7 on screen for 855.5s | zone=0.0s
+  Person 8 on screen for 3245.0s | zone=0.1s
+  Person 11 on screen for 3137.7s | zone=0.0s
+  Person 50 on screen for 2809.6s | zone=0.1s
+  Person 59 on screen for 1918.2s | zone=2.7s
+  Person 61 on screen for 2827.3s | zone=917.1s
+  Person 88 on screen for 2625.2s | zone=0.0s
+  Person 152 on screen for 2033.2s | zone=0.9s
+  Person 153 on screen for 1949.1s | zone=46.3s
+  Person 174 on screen for 1039.2s | zone=3.9s
+  Person 360 on screen for 93.2s | zone=79.8s
+Person-ID memory saved: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach4\0313.json
+CSV written: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0313-coach4-20260324-225329.csv
+--- end report ---
+
+[Progress] 2/14 ( 14.3%) | elapsed  1135.7s | ETA  6814.0s
+
+=== Running: Coach-4-hour-2-20260313100006.mp4 ===

@@ -1,0 +1,40 @@
+# date=3-13
+# cmd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\venv\Scripts\python.exe -u C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\video-script\coach-date-camera-id-runner.py --date 3-13 --camera coach-5 --video-root C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video --drive-mount-root /content/drive --no-viewer
+# cwd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo
+
+Combined CSV output: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach5\0313-coach5-20260324-225329.csv
+Found 13 video(s) in C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-5
+001. Coach-5-hour-1-20260313090001.mp4
+002. Coach-5-hour-2-20260313100001.mp4
+003. Coach-5-hour-3-20260313110007.mp4
+004. Coach-5-hour-4-20260313115509.mp4
+005. Coach-5-hour-5-20260313123218.mp4
+006. Coach-5-hour-6-20260313130218.mp4
+007. Coach-5-hour-7-20260313135218.mp4
+008. Coach-5-hour-8-20260313145221.mp4
+009. Coach-5-hour-9-20260313155221.mp4
+010. Coach-5-hour-10-20260313165221.mp4
+011. Coach-5-hour-11-20260313174721.mp4
+012. Coach-5-hour-12-20260313184721.mp4
+013. Coach-5-hour-13-20260313194721.mp4
+
+[Progress] 1/13 (  7.7%) | elapsed     0.0s | ETA     0.0s
+
+=== Running: Coach-5-hour-1-20260313090001.mp4 ===
+Person-ID memory: loaded 0 IDs from C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach5\0313.json
+[coach5] C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-13\Coach-5\Coach-5-hour-1-20260313090001.mp4 (36004 frames @ 10.0 fps). (headless)
+Config: yaml=coach5.yaml zone=C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\zone\coach5.json
+Output CSV: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach5\0313-coach5-20260324-225329.csv
+
+--- Report ---
+Time spent processing: 1156.1s
+Time on screen per person:
+  Person 0 on screen for 0.1s | zone=0.0s
+  Person 1 on screen for 4.9s | zone=2.4s
+Person-ID memory saved: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\person-ID\coach5\0313.json
+CSV written: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach5\0313-coach5-20260324-225329.csv
+--- end report ---
+
+[Progress] 2/13 ( 15.4%) | elapsed  1159.9s | ETA  6379.5s
+
+=== Running: Coach-5-hour-2-20260313100001.mp4 ===

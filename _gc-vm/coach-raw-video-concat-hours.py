@@ -19,9 +19,10 @@ Same (start,end) window may appear more than once; the largest file is kept.
 Requires: ffmpeg in PATH
 
 Examples:
-  python video-script/coach-raw-video-concat-hours.py
-  python video-script/coach-raw-video-concat-hours.py --root ~/coach-raw-video
-  python video-script/coach-raw-video-concat-hours.py --dates 3-14 3-15 --dry-run
+  python _gc-vm/coach-raw-video-concat-hours.py
+  python _gc-vm/coach-raw-video-concat-hours.py --root ~/coach-raw-video
+  python _gc-vm/coach-raw-video-concat-hours.py --dates 3-14 3-15 --dry-run
+  python _gc-vm/coach-raw-video-concat-hours.py --dates 3-13 --coaches 3 4 5
 """
 
 from __future__ import annotations
@@ -192,7 +193,21 @@ def main() -> int:
         help="Skip top-level dirs whose name starts with this (default: 00 e.g. 00 DownloadsInProgress)",
     )
     ap.add_argument("--dry-run", action="store_true", help="Print plan only; no ffmpeg")
+    ap.add_argument(
+        "--coaches",
+        nargs="+",
+        type=int,
+        metavar="N",
+        default=None,
+        help="Only these Coach-N folders (1-5). Default: process all coaches under each date.",
+    )
     args = ap.parse_args()
+
+    if args.coaches is not None:
+        bad = [n for n in args.coaches if n < 1 or n > 5]
+        if bad:
+            print(f"ERROR: --coaches must be 1..5 (got {bad})", file=sys.stderr)
+            return 2
 
     root = Path(args.root).expanduser().resolve()
     if not root.is_dir():
@@ -237,6 +252,8 @@ def main() -> int:
                 continue
             num = int(m.group(1))
             if num < 1 or num > 5:
+                continue
+            if args.coaches is not None and num not in set(args.coaches):
                 continue
             # Normalize label Coach-1 style for output filenames
             label = f"Coach-{num}"
