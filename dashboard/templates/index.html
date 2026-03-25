@@ -3,53 +3,62 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>demo dashboard</title>
+    <title>Overview — demo dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <div class="page">
-      <header class="topbar">
-        <div class="brand">
-          <div class="logo">📊</div>
-          <div>
-            <div class="title">demo dashboard</div>
-            <div class="subtitle">CSV-driven dwell analytics</div>
+      {% set header_subtitle = "Overview — CSV data from dashboard/csv (pick day folders below)" %}
+      {% include "partials/dashboard_header.html" %}
+
+      <section class="overview-date-controls card wide">
+        <p class="overview-date-hint">
+          Click a day to include or exclude that folder under <code>dashboard/csv/&lt;M-D&gt;/</code>. Only those CSVs feed the charts.
+        </p>
+        <div class="overview-date-toolbar">
+          <a class="btn btn-muted btn-small" href="{{ url_for('overview_get') }}">Reset (all test + baseline days)</a>
+          <a class="btn btn-muted btn-small" href="{{ url_for('overview_get', dates='') }}">Clear selection</a>
+        </div>
+        <div class="overview-date-group">
+          <div class="overview-date-group-label">Test</div>
+          <div class="overview-date-pills">
+            {% for d in test_dates %}
+              <a
+                class="date-pill {% if d in selected_dates %}date-pill-active{% endif %}"
+                href="{{ date_toggle_urls[d] }}"
+                title="Toggle {{ d }}"
+              >{{ d }}</a>
+            {% endfor %}
           </div>
         </div>
-
-        {% include "partials/nav_tabs.html" %}
-
-        <form class="load-form" method="get" action="/" id="csv-select-form">
-          <label class="label" for="files">CSV(s)</label>
-          <select class="select" id="files" name="files" multiple size="6" {% if hide_csv_list %}disabled{% endif %}>
-            {% if hide_csv_list %}
-              <option disabled selected value="">（列表已收起 — 点「Show CSV list」展开；不删磁盘文件）</option>
-            {% else %}
-              {% for row in csv_rows %}
-                <option value="{{ row.rel }}" title="{{ row.rel }}" {% if row.rel in selected_files %}selected{% endif %}>{{ row.label }}</option>
-              {% endfor %}
-            {% endif %}
-          </select>
-          <button type="submit" class="btn" {% if hide_csv_list %}disabled title="先显示 CSV 列表"{% endif %}>Load</button>
-          <a class="btn btn-muted" href="{{ url_for('index_get', clear=1) }}" title="Clear charts and hide the file list (does not delete files on disk)">Clear dashboard</a>
-          {% if hide_csv_list %}
-            <a class="btn btn-muted" href="{{ url_for('index_get', show_csv_list=1) }}" title="Show the CSV picker again (still read-only)">Show CSV list</a>
+        <div class="overview-date-group">
+          <div class="overview-date-group-label">Baseline</div>
+          <div class="overview-date-pills">
+            {% for d in baseline_dates %}
+              <a
+                class="date-pill {% if d in selected_dates %}date-pill-active{% endif %}"
+                href="{{ date_toggle_urls[d] }}"
+                title="Toggle {{ d }}"
+              >{{ d }}</a>
+            {% endfor %}
+          </div>
+        </div>
+        <p class="overview-date-meta">
+          Active folders: <strong>{{ selected_dates | length }}</strong>
+          {% if selected_dates %}
+            · <span class="muted">{{ selected_dates | join(", ") }}</span>
+          {% else %}
+            · <span class="muted">none — charts empty</span>
           {% endif %}
-        </form>
-
-        <form class="load-form" method="post" action="/upload" enctype="multipart/form-data">
-          <label class="label" for="csv_upload">Upload CSV(s)</label>
-          <input class="select" style="padding:8px 10px;" type="file" id="csv_upload" name="csv_upload" multiple accept=".csv" />
-          <button class="btn" type="submit">Add</button>
-        </form>
-      </header>
+        </p>
+      </section>
 
       <main class="grid">
         <section class="card">
           <div class="card-head">
             <div class="card-title">Dwell Time Breakdown</div>
-            <div class="stat-pill">Total, last 7 days: <span class="stat-num">{{ data.total_events }}</span></div>
+            <div class="stat-pill">Total events: <span class="stat-num">{{ data.total_events }}</span></div>
           </div>
           <div class="chart-wrap">
             <canvas id="dwellAll"></canvas>
@@ -59,7 +68,7 @@
         <section class="card">
           <div class="card-head">
             <div class="card-title">Dwell Time Breakdown by Zone</div>
-            <div class="stat-pill">Total, last 7 days: <span class="stat-num">{{ data.total_events }}</span></div>
+            <div class="stat-pill">Total events: <span class="stat-num">{{ data.total_events }}</span></div>
           </div>
           <div class="chart-wrap">
             <canvas id="dwellByZone"></canvas>
@@ -114,4 +123,3 @@
     <script src="{{ url_for('static', filename='charts.js') }}"></script>
   </body>
 </html>
-

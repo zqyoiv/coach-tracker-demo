@@ -357,3 +357,76 @@ canvas{
   min-width:0;
 }
 
+.muted{
+  color:var(--muted);
+}
+
+.overview-date-controls{
+  margin-bottom:14px;
+  min-height:auto;
+}
+.overview-date-hint{
+  font-size:12px;
+  color:var(--muted);
+  margin:0 0 10px;
+  line-height:1.45;
+}
+.overview-date-hint code{
+  font-size:11px;
+  color:rgba(229,231,235,.85);
+}
+.overview-date-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:12px;
+}
+.btn-small{
+  padding:6px 10px;
+  font-size:12px;
+  border-radius:8px;
+}
+.overview-date-group{
+  margin-bottom:12px;
+}
+.overview-date-group-label{
+  font-size:11px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  margin-bottom:8px;
+}
+.overview-date-pills{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.date-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  color:var(--muted);
+  text-decoration:none;
+  font-size:13px;
+  font-weight:600;
+  background:rgba(255,255,255,.03);
+}
+.date-pill:hover{
+  color:var(--text);
+  border-color:rgba(255,255,255,.18);
+}
+.date-pill-active{
+  color:var(--text);
+  border-color:rgba(139,92,246,.45);
+  background:rgba(139,92,246,.15);
+}
+.overview-date-meta{
+  font-size:12px;
+  color:var(--muted);
+  margin:4px 0 0;
+  line-height:1.45;
+}
+

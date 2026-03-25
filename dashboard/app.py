@@ -3,9 +3,8 @@ Dashboard: read-only analytics on CSV data.
 
 Never delete, move, or overwrite user CSV files on disk.
 
-Clear dashboard: clears charts and collapses the CSV picker (session only).
-Show CSV list: expands it again. Short labels in the list; full path on hover.
-Never deletes files on disk.
+Routes: `/` redirects to Compare. Overview is at `/overview` and loads only
+`dashboard/csv/<M-D>/**/*.csv` for the day folders you select.
 """
 
 from __future__ import annotations
@@ -19,13 +18,18 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import IO, Any, Iterable, Optional
 
-from flask import Flask, render_template, request, session
+from flask import Flask, redirect, render_template, request, url_for
 
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-dashboard-session-not-for-production")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Overview: day-folder buttons under dashboard/csv/<M-D>/
+OVERVIEW_TEST_DATES = ["3-13", "3-14", "3-15", "3-16"]
+OVERVIEW_BASELINE_DATES = ["3-20", "3-21", "3-22", "3-23"]
+OVERVIEW_ALL_DATES_ORDER = OVERVIEW_TEST_DATES + OVERVIEW_BASELINE_DATES
 
 
 BIN_DEFS = [
@@ -252,6 +256,46 @@ def _csv_rows_for_template(paths: list[str]) -> list[dict[str, str]]:
     return [{"rel": r, "label": _short_csv_label(r)} for r in paths]
 
 
+def _parse_overview_dates_arg(raw: str | None) -> set[str] | None:
+    """None = default (all overview days); empty string = none selected."""
+    if raw is None:
+        return None
+    if raw.strip() == "":
+        return set()
+    return {p.strip() for p in raw.split(",") if p.strip()}
+
+
+def _serialize_overview_dates(dates: set[str]) -> str:
+    if not dates:
+        return ""
+    order = [d for d in OVERVIEW_ALL_DATES_ORDER if d in dates]
+    extra = sorted(d for d in dates if d not in OVERVIEW_ALL_DATES_ORDER)
+    return ",".join(order + extra)
+
+
+def _toggle_overview_date(selected: set[str], toggle: str) -> set[str]:
+    s = set(selected)
+    if toggle in s:
+        s.remove(toggle)
+    else:
+        s.add(toggle)
+    return s
+
+
+def _events_from_dashboard_csv_day_folders(date_folders: set[str]) -> list[dict[str, Any]]:
+    """Load events only from dashboard/csv/<M-D>/**/*.csv for each selected folder name."""
+    events: list[dict[str, Any]] = []
+    root = PROJECT_ROOT / "dashboard" / "csv"
+    for md in date_folders:
+        folder = root / md
+        if not folder.is_dir():
+            continue
+        for p in sorted(folder.rglob("*.csv")):
+            if p.is_file():
+                events.extend(_events_from_any_csv(p))
+    return events
+
+
 def _parse_md_date(text: str) -> tuple[int, int] | None:
     """Parse '3-13' or '03-13' -> (month, day)."""
     text = text.strip()
@@ -429,77 +473,50 @@ def compare_get():
 
 
 @app.get("/")
-def index_get():
-    csv_files = _list_available_csvs()
-    hide_csv_list = bool(session.get("hide_csv_list", False))
+def root_get():
+    return redirect(url_for("compare_get"))
 
-    if request.args.get("show_csv_list"):
-        session["hide_csv_list"] = False
-        hide_csv_list = False
 
-    # Support multi-select: ?files=a.csv&files=b.csv
-    selected_files = request.args.getlist("files")
-    if not selected_files:
-        single = request.args.get("file")
-        if single:
-            selected_files = [single]
+@app.get("/overview")
+def overview_get():
+    raw = request.args.get("dates")
+    parsed = _parse_overview_dates_arg(raw)
+    if parsed is None:
+        selected: set[str] = set(OVERVIEW_ALL_DATES_ORDER)
+    else:
+        selected = {d for d in parsed if d in set(OVERVIEW_ALL_DATES_ORDER)}
 
-    # ?clear=1 — clear charts, clear selection, collapse long file list (session only; no disk delete)
-    if request.args.get("clear"):
-        session["hide_csv_list"] = True
-        hide_csv_list = True
-        selected_files = []
-    elif not selected_files and csv_files and not hide_csv_list:
-        selected_files = [csv_files[0]]
-
-    # When list is collapsed, do not render long paths in the <select>
-    csv_rows = [] if hide_csv_list else _csv_rows_for_template(csv_files)
-
-    events: list[dict[str, Any]] = []
-    for rel in selected_files:
-        selected_path = (PROJECT_ROOT / rel).resolve()
-        if selected_path.exists():
-            events.extend(_events_from_any_csv(selected_path))
-
+    events = _events_from_dashboard_csv_day_folders(selected)
     data = _compute_dashboard(events)
+
+    date_toggle_urls: dict[str, str] = {}
+    for d in OVERVIEW_ALL_DATES_ORDER:
+        new_sel = _toggle_overview_date(selected, d)
+        date_toggle_urls[d] = url_for("overview_get", dates=_serialize_overview_dates(new_sel))
+
+    selected_sorted = sorted(
+        selected,
+        key=lambda x: (
+            OVERVIEW_ALL_DATES_ORDER.index(x) if x in OVERVIEW_ALL_DATES_ORDER else 99,
+            x,
+        ),
+    )
+
     return render_template(
         "index.html",
         active_tab="overview",
-        csv_rows=csv_rows,
-        hide_csv_list=hide_csv_list,
-        selected_files=selected_files,
         data=data.__dict__,
+        test_dates=OVERVIEW_TEST_DATES,
+        baseline_dates=OVERVIEW_BASELINE_DATES,
+        selected_dates=selected_sorted,
+        date_toggle_urls=date_toggle_urls,
     )
 
 
 @app.post("/upload")
 def upload_post():
-    files = request.files.getlist("csv_upload")
-    if not files:
-        return index_get()
-    events: list[dict[str, Any]] = []
-    any_loaded = False
-    for f in files:
-        if not f or not f.filename:
-            continue
-        any_loaded = True
-        events.extend(_events_from_any_csv(f.stream))
-
-    if not any_loaded:
-        return index_get()
-
-    session["hide_csv_list"] = False
-    data = _compute_dashboard(events)
-    all_csv = _list_available_csvs()
-    csv_rows = _csv_rows_for_template(all_csv)
-    return render_template(
-        "index.html",
-        active_tab="overview",
-        csv_rows=csv_rows,
-        hide_csv_list=False,
-        selected_files=[],
-        data=data.__dict__,
-    )
+    # Overview is dashboard/csv-only; keep endpoint from breaking old bookmarks.
+    return redirect(url_for("overview_get"))
 
 
 if __name__ == "__main__":

@@ -9,16 +9,8 @@
   </head>
   <body>
     <div class="page">
-      <header class="topbar topbar-compare">
-        <div class="brand">
-          <div class="logo">📊</div>
-          <div>
-            <div class="title">demo dashboard</div>
-            <div class="subtitle">Compare two days across all cameras (dashboard/csv)</div>
-          </div>
-        </div>
-        {% include "partials/nav_tabs.html" %}
-      </header>
+      {% set header_subtitle = "Compare two days across all cameras (dashboard/csv)" %}
+      {% include "partials/dashboard_header.html" %}
 
       <section class="compare-controls card wide">
         <form class="compare-form" method="get" action="{{ url_for('compare_get') }}">
