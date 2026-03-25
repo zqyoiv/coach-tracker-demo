@@ -30,6 +30,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OVERVIEW_TEST_DATES = ["3-13", "3-14", "3-15", "3-16"]
 OVERVIEW_BASELINE_DATES = ["3-20", "3-21", "3-22", "3-23"]
 OVERVIEW_ALL_DATES_ORDER = OVERVIEW_TEST_DATES + OVERVIEW_BASELINE_DATES
+OVERVIEW_CAMERA_NUMS = [1, 2, 3, 4, 5]
 
 
 BIN_DEFS = [
@@ -155,6 +156,16 @@ class DashboardData:
 def _compute_dashboard(events: list[dict[str, Any]]) -> DashboardData:
     total_events = len(events)
 
+    def _cam_sort_key(cam: str) -> tuple[int, str]:
+        """
+        Force stable coach order for charts: coach-1,2,3,4,5.
+        Unknown/other camera ids go to the end.
+        """
+        m = re.search(r"coach[-_]?([1-5])", str(cam).lower())
+        if m:
+            return int(m.group(1)), str(cam)
+        return 99, str(cam)
+
     # Dwell bins
     dwell_all_counts = [0] * len(BIN_LABELS)
     dwell_by_zone: dict[str, list[int]] = {}
@@ -192,8 +203,8 @@ def _compute_dashboard(events: list[dict[str, Any]]) -> DashboardData:
         cam = str(e["camera_id"])
         cam_counts[cam] = cam_counts.get(cam, 0) + 1
         cam_sum_dwell[cam] = cam_sum_dwell.get(cam, 0.0) + float(e["dwell_sec"])
-    # Sort by count desc, then label
-    cam_items = sorted(cam_counts.items(), key=lambda x: (-x[1], x[0]))[:12]
+    # Stable camera order: coach-1..5
+    cam_items = sorted(cam_counts.items(), key=lambda x: (_cam_sort_key(x[0])[0], _cam_sort_key(x[0])[1]))[:12]
     camera_labels = [k for k, _v in cam_items]
     camera_counts = [v for _k, v in cam_items]
 
@@ -202,7 +213,8 @@ def _compute_dashboard(events: list[dict[str, Any]]) -> DashboardData:
     for cam, cnt in cam_counts.items():
         avg = (cam_sum_dwell.get(cam, 0.0) / cnt) if cnt > 0 else 0.0
         cam_avg_items.append((cam, avg))
-    cam_avg_items = sorted(cam_avg_items, key=lambda x: (-x[1], x[0]))[:12]
+    # Stable camera order: coach-1..5 (values can still differ)
+    cam_avg_items = sorted(cam_avg_items, key=lambda x: (_cam_sort_key(x[0])[0], _cam_sort_key(x[0])[1]))[:12]
     avg_dwell_camera_labels = [k for k, _v in cam_avg_items]
     avg_dwell_camera_values = [round(v, 2) for _k, v in cam_avg_items]
 
@@ -282,17 +294,131 @@ def _toggle_overview_date(selected: set[str], toggle: str) -> set[str]:
     return s
 
 
-def _events_from_dashboard_csv_day_folders(date_folders: set[str]) -> list[dict[str, Any]]:
-    """Load events only from dashboard/csv/<M-D>/**/*.csv for each selected folder name."""
+def _parse_overview_cams_arg(raw: str | None) -> dict[str, set[int]] | None:
+    """
+    Parse camera selection map from query arg `cams`.
+
+    Format: `3-13:1,2|3-14:1,2,3|3-20:`
+    Empty after ':' means "no cameras selected for that day".
+    None (missing param) => caller should use default (all cameras selected).
+    """
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if raw == "":
+        return {}
+
+    out: dict[str, set[int]] = {}
+    for part in raw.split("|"):
+        part = part.strip()
+        if not part:
+            continue
+        if ":" not in part:
+            continue
+        day, cams_str = part.split(":", 1)
+        day = day.strip()
+        cams_str = cams_str.strip()
+        if cams_str == "":
+            out[day] = set()
+        else:
+            cams = set()
+            for x in cams_str.split(","):
+                x = x.strip()
+                if not x:
+                    continue
+                try:
+                    n = int(x)
+                except ValueError:
+                    continue
+                if 1 <= n <= 5:
+                    cams.add(n)
+            out[day] = cams
+    return out
+
+
+def _serialize_overview_cams_map(cams_by_day: dict[str, set[int]]) -> str:
+    parts: list[str] = []
+    # stable ordering
+    for d in OVERVIEW_ALL_DATES_ORDER:
+        if d not in cams_by_day:
+            continue
+        cams = sorted(cams_by_day[d])
+        cams_part = ",".join(str(n) for n in cams)
+        parts.append(f"{d}:{cams_part}")
+    # include any extra keys not in known order
+    extras = sorted(d for d in cams_by_day.keys() if d not in set(OVERVIEW_ALL_DATES_ORDER))
+    for d in extras:
+        cams = sorted(cams_by_day[d])
+        cams_part = ",".join(str(n) for n in cams)
+        parts.append(f"{d}:{cams_part}")
+    return "|".join(parts)
+
+
+def _parse_overview_cams_all_arg(raw: str | None) -> set[int] | None:
+    """
+    Parse camera chips applying to *all* selected dates from query arg `camsAll`.
+
+    - None => default (all cameras)
+    - "" => no cameras
+    - "1,2,5" => {1,2,5}
+    """
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if raw == "":
+        return set()
+    out: set[int] = set()
+    for x in raw.split(","):
+        x = x.strip()
+        if not x:
+            continue
+        try:
+            n = int(x)
+        except ValueError:
+            continue
+        if 1 <= n <= 5:
+            out.add(n)
+    return out
+
+
+def _serialize_overview_cams_all(cams: set[int]) -> str:
+    if not cams:
+        return ""
+    return ",".join(str(n) for n in sorted(cams))
+
+
+def _cams_all_url_if_non_default(cams: set[int], all_cams: set[int]) -> str | None:
+    """
+    Returns a query-string value for camsAll, or None if cams == all_cams.
+    Keeps URLs short when the selection is the default.
+    """
+    if cams == all_cams:
+        return None
+    return _serialize_overview_cams_all(cams)
+
+
+def _events_from_dashboard_csv_day_folders(
+    date_folders: set[str],
+    cams_by_day: dict[str, set[int]] | None = None,
+) -> list[dict[str, Any]]:
+    """Load events only from dashboard/csv/<M-D>/**/*.csv for selected folders."""
     events: list[dict[str, Any]] = []
     root = PROJECT_ROOT / "dashboard" / "csv"
     for md in date_folders:
         folder = root / md
         if not folder.is_dir():
             continue
+        allowed_cams = None
+        if cams_by_day is not None:
+            allowed_cams = cams_by_day.get(md)
         for p in sorted(folder.rglob("*.csv")):
-            if p.is_file():
-                events.extend(_events_from_any_csv(p))
+            if not p.is_file():
+                continue
+            if allowed_cams is not None:
+                n = _parse_coach_num(p.name)
+                if n is None or n not in allowed_cams:
+                    continue
+            events.extend(_events_from_any_csv(p))
     return events
 
 
@@ -486,13 +612,17 @@ def overview_get():
     else:
         selected = {d for d in parsed if d in set(OVERVIEW_ALL_DATES_ORDER)}
 
-    events = _events_from_dashboard_csv_day_folders(selected)
-    data = _compute_dashboard(events)
+    # Cameras: global chips from query arg `camsAll` (applies to all selected dates)
+    default_all = set(OVERVIEW_CAMERA_NUMS)
+    cams_all_raw = request.args.get("camsAll")
+    selected_cams_all = _parse_overview_cams_all_arg(cams_all_raw)
+    if selected_cams_all is None:
+        selected_cams_all = set(default_all)
 
-    date_toggle_urls: dict[str, str] = {}
-    for d in OVERVIEW_ALL_DATES_ORDER:
-        new_sel = _toggle_overview_date(selected, d)
-        date_toggle_urls[d] = url_for("overview_get", dates=_serialize_overview_dates(new_sel))
+    selected_cams_by_day: dict[str, set[int]] = {d: set(selected_cams_all) for d in selected}
+
+    events = _events_from_dashboard_csv_day_folders(selected, selected_cams_by_day)
+    data = _compute_dashboard(events)
 
     selected_sorted = sorted(
         selected,
@@ -502,6 +632,36 @@ def overview_get():
         ),
     )
 
+    # Dates toggle urls (keep current camera selection for remaining days)
+    date_toggle_urls: dict[str, str] = {}
+    cams_all_param = _cams_all_url_if_non_default(selected_cams_all, default_all)
+    for d in OVERVIEW_ALL_DATES_ORDER:
+        new_sel = _toggle_overview_date(selected, d)
+        # camera selection stays global; no need to rebuild per-day map
+        date_toggle_urls[d] = url_for(
+            "overview_get",
+            dates=_serialize_overview_dates(new_sel),
+            camsAll=cams_all_param if cams_all_param is not None else "",
+        )
+
+    # Camera toggle urls (global, applies to all selected dates)
+    cam_toggle_urls: dict[int, str] = {}
+    dates_serialized = _serialize_overview_dates(selected)
+    for cam in OVERVIEW_CAMERA_NUMS:
+        new_cams = set(selected_cams_all)
+        if cam in new_cams:
+            new_cams.remove(cam)
+        else:
+            new_cams.add(cam)
+        new_cams_param = _serialize_overview_cams_all(new_cams)
+        # keep URL compact: if empty => '', which the parser treats as "no cams"
+        cams_all_q = new_cams_param if new_cams_param != "" else ""
+        cam_toggle_urls[cam] = url_for(
+            "overview_get",
+            dates=dates_serialized,
+            camsAll=cams_all_q,
+        )
+
     return render_template(
         "index.html",
         active_tab="overview",
@@ -510,6 +670,8 @@ def overview_get():
         baseline_dates=OVERVIEW_BASELINE_DATES,
         selected_dates=selected_sorted,
         date_toggle_urls=date_toggle_urls,
+        selected_cams_all=selected_cams_all,
+        cam_toggle_urls=cam_toggle_urls,
     )
 
 

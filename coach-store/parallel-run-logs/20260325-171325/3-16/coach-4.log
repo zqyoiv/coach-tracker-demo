@@ -1,0 +1,21 @@
+# date=3-16
+# cmd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\venv\Scripts\python.exe -u C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\video-script\coach-date-camera-id-runner.py --date 3-16 --camera coach-4 --video-root C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video --drive-mount-root /content/drive --no-viewer
+# cwd: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo
+
+Combined CSV output: C:\Users\vioyq\Desktop\Coach_Tracker\coach-tracker-demo\coach-store\CSV-state\coach4\0316-coach4-20260325-171325.csv
+Found 11 video(s) in C:\Users\vioyq\Desktop\Coach_Tracker\_Coach_Video\3-16\Coach-4
+001. Coach-4-hour-1-20260316095957.mp4
+002. Coach-4-hour-2-20260316105957.mp4
+003. Coach-4-hour-3-20260316115957.mp4
+004. Coach-4-hour-4-20260316125957.mp4
+005. Coach-4-hour-5-20260316135957.mp4
+006. Coach-4-hour-6-20260316145957.mp4
+007. Coach-4-hour-7-20260316155957.mp4
+008. Coach-4-hour-8-20260316165957.mp4
+009. Coach-4-hour-9-20260316175957.mp4
+010. Coach-4-hour-10-20260316190000.mp4
+011. Coach-4-hour-11-20260316200001.mp4
+
+[Progress] 1/11 (  9.1%) | elapsed     0.0s | ETA     0.0s
+
+=== Running: Coach-4-hour-1-20260316095957.mp4 ===

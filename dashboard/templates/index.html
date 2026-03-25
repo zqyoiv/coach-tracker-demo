@@ -13,45 +13,72 @@
       {% include "partials/dashboard_header.html" %}
 
       <section class="overview-date-controls card wide">
-        <p class="overview-date-hint">
-          Click a day to include or exclude that folder under <code>dashboard/csv/&lt;M-D&gt;/</code>. Only those CSVs feed the charts.
-        </p>
-        <div class="overview-date-toolbar">
-          <a class="btn btn-muted btn-small" href="{{ url_for('overview_get') }}">Reset (all test + baseline days)</a>
-          <a class="btn btn-muted btn-small" href="{{ url_for('overview_get', dates='') }}">Clear selection</a>
-        </div>
-        <div class="overview-date-group">
-          <div class="overview-date-group-label">Test</div>
-          <div class="overview-date-pills">
-            {% for d in test_dates %}
-              <a
-                class="date-pill {% if d in selected_dates %}date-pill-active{% endif %}"
-                href="{{ date_toggle_urls[d] }}"
-                title="Toggle {{ d }}"
-              >{{ d }}</a>
-            {% endfor %}
+        <div class="overview-controls-grid">
+          <div class="overview-controls-left">
+            <p class="overview-date-hint">
+              Click a day to include or exclude that folder under <code>dashboard/csv/&lt;M-D&gt;/</code>. Only those CSVs feed the charts.
+            </p>
+            <div class="overview-date-toolbar">
+              <a class="btn btn-muted btn-small" href="{{ url_for('overview_get') }}">Reset (all test + baseline days)</a>
+              <a class="btn btn-muted btn-small" href="{{ url_for('overview_get', dates='') }}">Clear selection</a>
+            </div>
+
+            <div class="overview-date-group">
+              <div class="overview-date-group-label">Test</div>
+              <div class="overview-date-pills">
+                {% for d in test_dates %}
+                  <a
+                    class="date-pill {% if d in selected_dates %}date-pill-active{% endif %}"
+                    href="{{ date_toggle_urls[d] }}"
+                    title="Toggle {{ d }}"
+                  >{{ d }}</a>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="overview-date-group">
+              <div class="overview-date-group-label">Baseline</div>
+              <div class="overview-date-pills">
+                {% for d in baseline_dates %}
+                  <a
+                    class="date-pill {% if d in selected_dates %}date-pill-active{% endif %}"
+                    href="{{ date_toggle_urls[d] }}"
+                    title="Toggle {{ d }}"
+                  >{{ d }}</a>
+                {% endfor %}
+              </div>
+            </div>
+
+            <p class="overview-date-meta">
+              Active folders: <strong>{{ selected_dates | length }}</strong>
+              {% if selected_dates %}
+                · <span class="muted">{{ selected_dates | join(", ") }}</span>
+              {% else %}
+                · <span class="muted">none — charts empty</span>
+              {% endif %}
+            </p>
+          </div>
+
+          <div class="overview-controls-right">
+            {% if selected_dates %}
+              <div class="overview-cam-groups">
+                <div class="overview-cam-day">
+                  <div class="overview-cam-day-label">Cameras</div>
+                  <div class="overview-cam-chips">
+                    {% for cam in range(1, 6) %}
+                      {% set active = cam in selected_cams_all %}
+                      <a
+                        class="cam-chip {% if active %}cam-chip-active{% endif %}"
+                        href="{{ cam_toggle_urls[cam] }}"
+                        title="Toggle coach-{{ cam }} for all selected days"
+                      >coach-{{ cam }}</a>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
           </div>
         </div>
-        <div class="overview-date-group">
-          <div class="overview-date-group-label">Baseline</div>
-          <div class="overview-date-pills">
-            {% for d in baseline_dates %}
-              <a
-                class="date-pill {% if d in selected_dates %}date-pill-active{% endif %}"
-                href="{{ date_toggle_urls[d] }}"
-                title="Toggle {{ d }}"
-              >{{ d }}</a>
-            {% endfor %}
-          </div>
-        </div>
-        <p class="overview-date-meta">
-          Active folders: <strong>{{ selected_dates | length }}</strong>
-          {% if selected_dates %}
-            · <span class="muted">{{ selected_dates | join(", ") }}</span>
-          {% else %}
-            · <span class="muted">none — charts empty</span>
-          {% endif %}
-        </p>
       </section>
 
       <main class="grid">
