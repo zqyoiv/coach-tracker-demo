@@ -18,6 +18,11 @@ class SupervisionZoneTracker:
     - per-ID per-zone dwell = last time seen in zone minus first time (no accumulation)
     - drawing both zones + heatmap on the frame
     - buffer-based dwell events: send when person has been gone > buffer_sec without returning
+
+    zone_membership_mode (see update()):
+      - "center": bbox center in polygon
+      - "bottom_center" / "bottom": midpoint of bbox bottom edge ((x1+x2)/2, y2)
+      - otherwise: any corner or center touches polygon (legacy "any-point")
     """
 
     def __init__(
@@ -134,6 +139,10 @@ class SupervisionZoneTracker:
                 if self._zone_membership_mode == "center":
                     inside_1 = cv2.pointPolygonTest(poly1, (cx, cy), False) >= 0
                     inside_2 = cv2.pointPolygonTest(poly2, (cx, cy), False) >= 0
+                elif self._zone_membership_mode in ("bottom", "bottom_center"):
+                    bx, by = (x1 + x2) / 2.0, y2
+                    inside_1 = cv2.pointPolygonTest(poly1, (bx, by), False) >= 0
+                    inside_2 = cv2.pointPolygonTest(poly2, (bx, by), False) >= 0
                 else:
                     test_points = [(x1, y1), (x2, y1), (x2, y2), (x1, y2), (cx, cy)]
                     inside_1 = any(
