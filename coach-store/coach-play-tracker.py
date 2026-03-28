@@ -7,7 +7,8 @@ Usage:
 Behavior:
   - Detect camera from video filename prefix (coach1/coach-1 ... coach5/coach-5)
   - Load per-camera tracker YAML (coach1.yaml..coach5.yaml)
-  - Load per-camera zone file (zone/coach1.json..zone/coach5.json)
+  - Load per-camera zone file (zone/coach1.json..zone/coach5.json).
+    If zone_norm is set (4 numbers), it wins; otherwise zone_polygon_norm is used.
   - Write CSV into coach-store/CSV-state/<coachN>/ with timestamped filename
 """
 
@@ -95,14 +96,33 @@ def _load_zone_config(camera_slug: str) -> dict:
         raise FileNotFoundError(f"Zone file missing: {zone_path}")
     with open(zone_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    zone_norm = data.get("zone_norm")
-    if (
-        not isinstance(zone_norm, list)
-        or len(zone_norm) != 4
-        or not all(isinstance(v, (int, float)) for v in zone_norm)
-    ):
-        raise ValueError(f"Invalid zone_norm in {zone_path}")
-    data["zone_norm"] = tuple(float(v) for v in zone_norm)
+    rect_raw = data.get("zone_norm")
+    poly_raw = data.get("zone_polygon_norm")
+    if rect_raw is not None:
+        if (
+            not isinstance(rect_raw, list)
+            or len(rect_raw) != 4
+            or not all(isinstance(v, (int, float)) for v in rect_raw)
+        ):
+            raise ValueError(f"Invalid zone_norm in {zone_path}")
+        data["zone_norm"] = tuple(float(v) for v in rect_raw)
+        data["zone_polygon_norm"] = None
+    elif poly_raw is not None:
+        if not isinstance(poly_raw, list) or len(poly_raw) < 3:
+            raise ValueError(f"zone_polygon_norm must be a list of at least 3 [x,y] points in {zone_path}")
+        pts = []
+        for i, p in enumerate(poly_raw):
+            if (
+                not isinstance(p, (list, tuple))
+                or len(p) != 2
+                or not all(isinstance(v, (int, float)) for v in p)
+            ):
+                raise ValueError(f"Invalid zone_polygon_norm point {i} in {zone_path}")
+            pts.append((float(p[0]), float(p[1])))
+        data["zone_polygon_norm"] = tuple(pts)
+        data["zone_norm"] = None
+    else:
+        raise ValueError(f"Missing zone_norm or zone_polygon_norm in {zone_path}")
     data["zone_label"] = str(data.get("zone_label", "Zone 1"))
     return data
 
@@ -126,13 +146,21 @@ def _video_start_datetime(video_path: str) -> Optional[datetime]:
         return None
 
 
-def _zone_polygons(frame_shape, zone_norm):
+def _zone_polygons(frame_shape, zone_cfg):
     h, w = frame_shape[:2]
-    x1 = int(zone_norm[0] * w)
-    y1 = int(zone_norm[1] * h)
-    x2 = int(zone_norm[2] * w)
-    y2 = int(zone_norm[3] * h)
-    zone_1 = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.int32)
+    zone_norm = zone_cfg.get("zone_norm")
+    if zone_norm is not None:
+        x1 = int(zone_norm[0] * w)
+        y1 = int(zone_norm[1] * h)
+        x2 = int(zone_norm[2] * w)
+        y2 = int(zone_norm[3] * h)
+        zone_1 = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.int32)
+    else:
+        poly_norm = zone_cfg["zone_polygon_norm"]
+        zone_1 = np.array(
+            [[int(x * w), int(y * h)] for x, y in poly_norm],
+            dtype=np.int32,
+        )
     zone_2 = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.int32)
     return zone_1, zone_2
 
@@ -227,7 +255,6 @@ def main():
         print(f"Error: tracker yaml not found: {tracker_cfg}")
         sys.exit(1)
     zone_cfg = _load_zone_config(camera_slug)
-    zone_norm = zone_cfg["zone_norm"]
     zone_label = zone_cfg["zone_label"]
 
     cap = cv2.VideoCapture(video_path)
@@ -354,7 +381,7 @@ def main():
                     last_seen_sec[resolved_id] = t_sec + frame_duration
 
             if USE_SUPERVISION and sv_helper is None and frame is not None:
-                z1_poly, z2_poly = _zone_polygons(frame.shape, zone_norm)
+                z1_poly, z2_poly = _zone_polygons(frame.shape, zone_cfg)
                 purple_color = sv.Color.from_hex("#E040FB")
                 sv_helper = SupervisionZoneTracker(
                     frame.shape,
