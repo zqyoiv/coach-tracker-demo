@@ -389,7 +389,7 @@ def main():
                     zone_1_polygon=z1_poly,
                     zone_2_polygon=z2_poly,
                     zone_1_color=purple_color,
-                    zone_membership_mode="bottom_center",
+                    zone_membership_mode="center",
                     enable_heatmap=False,
                     debug_prints=False,
                 )
