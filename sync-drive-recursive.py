@@ -1,19 +1,53 @@
 import os
 import io
+from typing import Optional
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
 # ================= 配置区 =================
-KEY_FILE = 'key.json'  
-ROOT_FOLDER_ID = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkmlCIK'  
-LOCAL_ROOT = os.path.expanduser('~/coach-raw-video') 
+KEY_FILE = 'key.json'
+ROOT_FOLDER_ID = '1zuHPXlu3oLNYC5Ri2LQ5qA7-_vkmlCIK'
+LOCAL_ROOT = os.path.expanduser('~/coach-raw-video')
+# Only this subfolder of ROOT (and its descendants) is synced — not sibling date folders.
+SYNC_FOLDER_NAME = '3-23'
 # ==========================================
 
 creds = service_account.Credentials.from_service_account_file(
     KEY_FILE, scopes=['https://www.googleapis.com/auth/drive.readonly']
 )
 service = build('drive', 'v3', credentials=creds)
+
+
+def find_child_folder_id(parent_id: str, name: str) -> Optional[str]:
+    """Return Drive folder id for direct child of parent_id with exact name, or None."""
+    # Escape single quotes for Drive query (name is fixed literal here)
+    safe = name.replace("'", "\\'")
+    q = (
+        f"'{parent_id}' in parents and trashed = false "
+        f"and mimeType = 'application/vnd.google-apps.folder' "
+        f"and name = '{safe}'"
+    )
+    token = None
+    while True:
+        req = service.files().list(
+            q=q,
+            fields="nextPageToken, files(id, name)",
+            pageSize=100,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+            pageToken=token,
+        )
+        res = req.execute()
+        for f in res.get('files', []):
+            if f.get('name') == name:
+                return f['id']
+        token = res.get('nextPageToken')
+        if not token:
+            break
+    return None
+
 
 def download_recursive(folder_id, local_path):
     # 1. 创建本地目录
@@ -59,9 +93,18 @@ def download_recursive(folder_id, local_path):
                 print(f" [跳过] {e}")
 
 if __name__ == "__main__":
-    print(f"🚀 开始同步到: {LOCAL_ROOT}")
+    local_target = os.path.join(LOCAL_ROOT, SYNC_FOLDER_NAME)
+    print(f"🚀 只同步 Drive 子文件夹「{SYNC_FOLDER_NAME}」到: {local_target}")
     try:
-        download_recursive(ROOT_FOLDER_ID, LOCAL_ROOT)
+        sub_id = find_child_folder_id(ROOT_FOLDER_ID, SYNC_FOLDER_NAME)
+        if not sub_id:
+            print(
+                f"❌ 在根目录下未找到名为「{SYNC_FOLDER_NAME}」的文件夹（ROOT_FOLDER_ID 的直接子项）。"
+            )
+            raise SystemExit(1)
+        download_recursive(sub_id, local_target)
         print("\n✅ 同步圆满完成！")
+    except SystemExit:
+        raise
     except Exception as e:
         print(f"\n❌ 运行中断: {e}")
